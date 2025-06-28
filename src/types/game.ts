@@ -1,7 +1,26 @@
+// Technology imports
+import { TechnologyType, TechnologyEra } from '../game/TechnologyDefinitions';
+import type { Technology } from '../game/TechnologyDefinitions';
+
 // Game coordinate system types
 export interface Position {
   x: number;
   y: number;
+}
+
+// Scenario system types
+export const MapScenario = {
+  RANDOM: 'random',
+  EARTH: 'earth'
+};
+export type MapScenario = typeof MapScenario[keyof typeof MapScenario];
+
+export interface ScenarioConfig {
+  name: string;
+  description: string;
+  width: number;
+  height: number;
+  generator: (width: number, height: number) => Tile[][];
 }
 
 export interface Tile {
@@ -45,15 +64,84 @@ export interface Unit {
   maxHealth: number;
   playerId: string;
   experience: number;
+  isVeteran: boolean;
+  fortified: boolean;
+}
+
+export const UnitCategory = {
+  LAND: 'land',
+  NAVAL: 'naval',
+  AIR: 'air',
+  SPECIAL: 'special'
+} as const;
+export type UnitCategory = typeof UnitCategory[keyof typeof UnitCategory];
+
+export interface UnitStats {
+  attack: number;
+  defense: number;
+  movement: number;
+  category: UnitCategory;
+  requiredTechnology?: TechnologyType;
+  productionCost: number;
+  canAttack: boolean;
+  canFortify: boolean;
+  canCarryUnits?: number; // For naval/air transport units
+  visibility?: number; // For naval/air units with extended vision
+  specialAbilities?: string[];
 }
 
 export const UnitType = {
+  // Non-combat units
   SETTLER: 'settler',
+  DIPLOMAT: 'diplomat',
+  CARAVAN: 'caravan',
+
+  // Ancient military units
+  MILITIA: 'militia',
+  PHALANX: 'phalanx',
+  LEGION: 'legion',
+  CAVALRY: 'cavalry',
+  CHARIOT: 'chariot',
+  CATAPULT: 'catapult',
+
+  // Medieval military units
+  KNIGHTS: 'knights',
+
+  // Gunpowder units
+  MUSKETEERS: 'musketeers',
+  CANNON: 'cannon',
+
+  // Industrial units
+  RIFLEMEN: 'riflemen',
+  ARTILLERY: 'artillery',
+
+  // Modern units
+  ARMOR: 'armor',
+  MECHANIZED_INFANTRY: 'mechanized_infantry',
+
+  // Naval units
+  TRIREME: 'trireme',
+  SAIL: 'sail',
+  FRIGATE: 'frigate',
+  IRONCLAD: 'ironclad',
+  CRUISER: 'cruiser',
+  BATTLESHIP: 'battleship',
+  CARRIER: 'carrier',
+  TRANSPORT: 'transport',
+  SUBMARINE: 'submarine',
+
+  // Air units
+  FIGHTER: 'fighter',
+  BOMBER: 'bomber',
+
+  // Special units
+  NUCLEAR: 'nuclear',
+
+  // Legacy units (for backward compatibility)
   WARRIOR: 'warrior',
   SCOUT: 'scout',
   ARCHER: 'archer',
-  SPEARMAN: 'spearman',
-  CATAPULT: 'catapult'
+  SPEARMAN: 'spearman'
 } as const;
 export type UnitType = typeof UnitType[keyof typeof UnitType];
 
@@ -115,17 +203,9 @@ export interface Player {
   science: number;
   gold: number;
   culture: number;
-  technologies: Technology[];
+  technologies: TechnologyType[];
   government: GovernmentType;
   revolutionTurns?: number; // Turns remaining in anarchy during revolution
-}
-
-export interface Technology {
-  id: string;
-  name: string;
-  cost: number;
-  prerequisites: string[];
-  unlocks: string[];
 }
 
 // Government system types
@@ -143,7 +223,7 @@ export interface Government {
   type: GovernmentType;
   name: string;
   description: string;
-  requiredTechnology?: string; // Technology needed to unlock this government
+  requiredTechnology?: TechnologyType; // Technology needed to unlock this government
   effects: GovernmentEffects;
   restrictions: GovernmentRestrictions;
 }
@@ -153,18 +233,18 @@ export interface GovernmentEffects {
   productionPenalty: boolean; // true if 3+ production tiles are reduced by 1
   corruptionType: 'distance' | 'flat' | 'none'; // How corruption is calculated
   tradeBonus: boolean; // true if +1 trade where trade already exists
-  
+
   // Unit support costs
   militarySupport: {
     freeUnits: 'population' | 'none'; // Free units equal to population or none
     costPerUnit: number; // Resource cost per military unit
   };
   settlerSupport: number; // Food cost per settler
-  
+
   // Happiness effects
   martialLawAvailable: boolean; // Can military units make unhappy citizens content
   unhappinessFromMilitary: number; // Unhappy citizens per military unit away from home city
-  
+
   // Other effects
   taxCollection: boolean; // false during anarchy
   maintenanceCosts: boolean; // false during anarchy  
@@ -203,7 +283,7 @@ export const GOVERNMENTS: Record<GovernmentType, Government> = {
       peaceOffers: false
     }
   },
-  
+
   [GovernmentType.ANARCHY]: {
     type: GovernmentType.ANARCHY,
     name: 'Anarchy',
@@ -229,12 +309,12 @@ export const GOVERNMENTS: Record<GovernmentType, Government> = {
       peaceOffers: false
     }
   },
-  
+
   [GovernmentType.MONARCHY]: {
     type: GovernmentType.MONARCHY,
     name: 'Monarchy',
     description: 'Your rule is less absolute, and more with the acceptance of the people, especially an aristocracy of upper class citizens.',
-    requiredTechnology: 'Monarchy',
+    requiredTechnology: TechnologyType.MONARCHY,
     effects: {
       productionPenalty: false, // No production penalty
       corruptionType: 'distance',
@@ -256,12 +336,12 @@ export const GOVERNMENTS: Record<GovernmentType, Government> = {
       peaceOffers: false
     }
   },
-  
+
   [GovernmentType.COMMUNISM]: {
     type: GovernmentType.COMMUNISM,
     name: 'Communism',
     description: 'You are the head of the communistic government, and rule with the support of the controlling party.',
-    requiredTechnology: 'Communism',
+    requiredTechnology: TechnologyType.COMMUNISM,
     effects: {
       productionPenalty: false, // No production penalty
       corruptionType: 'flat', // Flat corruption rate for all cities
@@ -283,12 +363,12 @@ export const GOVERNMENTS: Record<GovernmentType, Government> = {
       peaceOffers: false
     }
   },
-  
+
   [GovernmentType.REPUBLIC]: {
     type: GovernmentType.REPUBLIC,
     name: 'The Republic',
     description: 'You rule over the assembly of city-states. The people have a great deal of personal and economic freedom, resulting in greatly increased trade.',
-    requiredTechnology: 'The Republic',
+    requiredTechnology: TechnologyType.THE_REPUBLIC,
     effects: {
       productionPenalty: false, // No production penalty
       corruptionType: 'distance',
@@ -310,12 +390,12 @@ export const GOVERNMENTS: Record<GovernmentType, Government> = {
       peaceOffers: true // Senate accepts all peace offers
     }
   },
-  
+
   [GovernmentType.DEMOCRACY]: {
     type: GovernmentType.DEMOCRACY,
     name: 'Democracy',
     description: 'You rule as the elected executive of a democracy. The degree of freedom results in maximum opportunity for economic production and trade.',
-    requiredTechnology: 'Democracy',
+    requiredTechnology: TechnologyType.DEMOCRACY,
     effects: {
       productionPenalty: false, // No production penalty
       corruptionType: 'none', // No corruption
@@ -373,3 +453,6 @@ export interface RenderContext {
   viewport: ViewPort;
   tileSize: number;
 }
+
+// Re-export technology types
+export { Technology, TechnologyType, TechnologyEra };

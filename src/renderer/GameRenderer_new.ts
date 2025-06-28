@@ -112,16 +112,14 @@ export class GameRenderer {
   private renderTile(tile: Tile, x: number, y: number, connectionPattern: ConnectionPattern): void {
     const screenPos = this.renderer.worldToScreen(x, y);
     
-    const terrainSprite = TerrainManager.getTerrainSprite(
+    const terrainSprite = TerrainManager.getTerrainTexture(
       tile.terrain, 
-      this.tileSize,
-      connectionPattern
+      connectionPattern, 
+      this.tileSize
     );
     
     if (terrainSprite) {
-      // Draw the terrain sprite
-      const ctx = this.renderer.getContext();
-      ctx.drawImage(
+      this.renderer.drawImage(
         terrainSprite,
         screenPos.x,
         screenPos.y,

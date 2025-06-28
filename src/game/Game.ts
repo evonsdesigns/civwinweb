@@ -1,16 +1,22 @@
-import { GamePhase, GameState, Player, Position, Unit, City, GovernmentType, GOVERNMENTS, GovernmentEffects } from '../types/game';
+import { GamePhase, GameState, Player, Position, Unit, City, GovernmentType, GOVERNMENTS, GovernmentEffects, MapScenario, UnitType, TechnologyType } from '../types/game';
 import { MapGenerator } from './MapGenerator';
 import { TurnManager } from './TurnManager';
+import { createUnit } from './Units';
+import { getUnitStats } from './UnitDefinitions';
+import { CombatSystem, CombatResult } from './CombatSystem';
+import { getTechnology, canResearch, getResearchCost } from './TechnologyDefinitions';
 
 export class Game {
   private gameState: GameState;
   private mapGenerator: MapGenerator;
   private turnManager: TurnManager;
+  private combatSystem: CombatSystem;
   private eventListeners: Map<string, Function[]> = new Map();
 
   constructor() {
     this.mapGenerator = new MapGenerator();
     this.turnManager = new TurnManager();
+    this.combatSystem = new CombatSystem();
     
     // Initialize game state
     this.gameState = {
@@ -25,14 +31,14 @@ export class Game {
     };
   }
 
-  // Initialize a new game
-  public initializeGame(playerNames: string[]): void {
+  // Initialize a new game with scenario
+  public initializeGame(playerNames: string[], scenario: MapScenario = 'earth'): void {
     // Create players
     this.gameState.players = this.createPlayers(playerNames);
     this.gameState.currentPlayer = this.gameState.players[0].id;
 
-    // Generate world map (80x50 with horizontal wrapping)
-    this.gameState.worldMap = this.mapGenerator.generateMap(80, 50);
+    // Generate world map based on scenario (80x50 with horizontal wrapping)
+    this.gameState.worldMap = this.mapGenerator.generateMap(80, 50, scenario);
 
     // Place initial units and cities for each player
     this.placeInitialUnits();
@@ -52,10 +58,10 @@ export class Game {
       name,
       color: colors[index] || '#FFFFFF',
       isHuman: index === 0, // First player is human, others are AI
-      science: 0,
+      science: 20, // Start with some science points for testing
       gold: 50,
       culture: 0,
-      technologies: [],
+      technologies: [], // Start with no technologies - can research basic ones
       government: GovernmentType.DESPOTISM // Start with Despotism
     }));
   }
@@ -69,31 +75,21 @@ export class Game {
       // Find a suitable starting position
       const startPosition = this.findStartingPosition(mapWidth, mapHeight, index);
       
-      // Create settler
-      const settler: Unit = {
-        id: `settler-${player.id}`,
-        type: 'settler' as any,
-        position: startPosition,
-        movementPoints: 2,
-        maxMovementPoints: 2,
-        health: 100,
-        maxHealth: 100,
-        playerId: player.id,
-        experience: 0
-      };
+      // Create settler using the new unit factory
+      const settler = createUnit(
+        `settler-${player.id}`,
+        UnitType.SETTLER,
+        startPosition,
+        player.id
+      );
 
-      // Create warrior
-      const warrior: Unit = {
-        id: `warrior-${player.id}`,
-        type: 'warrior' as any,
-        position: { x: startPosition.x + 1, y: startPosition.y },
-        movementPoints: 2,
-        maxMovementPoints: 2,
-        health: 100,
-        maxHealth: 100,
-        playerId: player.id,
-        experience: 0
-      };
+      // Create warrior using the new unit factory
+      const warrior = createUnit(
+        `warrior-${player.id}`,
+        UnitType.WARRIOR,
+        { x: startPosition.x + 1, y: startPosition.y },
+        player.id
+      );
 
       this.gameState.units.push(settler, warrior);
     });
@@ -188,7 +184,7 @@ export class Game {
   // Found a city
   public foundCity(unitId: string, cityName: string): boolean {
     const unit = this.gameState.units.find((u: Unit) => u.id === unitId);
-    if (!unit || unit.type !== 'settler') return false;
+    if (!unit || unit.type !== UnitType.SETTLER) return false;
 
     // Create new city
     const city: City = {
@@ -212,6 +208,96 @@ export class Game {
 
     this.emit('cityFounded', city);
     return true;
+  }
+
+  // Attack another unit
+  public attackUnit(attackerUnitId: string, defenderUnitId: string): CombatResult | null {
+    const attacker = this.gameState.units.find(u => u.id === attackerUnitId);
+    const defender = this.gameState.units.find(u => u.id === defenderUnitId);
+
+    if (!attacker || !defender) return null;
+
+    const result = this.combatSystem.executeAttack(attacker, defender);
+    
+    if (result) {
+      // Remove destroyed units
+      if (!result.attackerSurvived) {
+        this.gameState.units = this.gameState.units.filter(u => u.id !== attackerUnitId);
+      }
+      if (!result.defenderSurvived) {
+        this.gameState.units = this.gameState.units.filter(u => u.id !== defenderUnitId);
+      }
+
+      this.emit('combatResolved', result);
+    }
+
+    return result;
+  }
+
+  // Fortify a unit
+  public fortifyUnit(unitId: string): boolean {
+    const unit = this.gameState.units.find(u => u.id === unitId);
+    if (!unit) return false;
+
+    const stats = getUnitStats(unit.type);
+    if (!stats.canFortify) return false;
+
+    unit.fortified = true;
+    unit.movementPoints = 0; // End turn when fortifying
+
+    this.emit('unitFortified', unit);
+    return true;
+  }
+
+  // Wake up (unfortify) a unit
+  public wakeUnit(unitId: string): boolean {
+    const unit = this.gameState.units.find(u => u.id === unitId);
+    if (!unit) return false;
+
+    unit.fortified = false;
+
+    this.emit('unitWoken', unit);
+    return true;
+  }
+
+  // Create a unit of specified type at specified position
+  public createUnit(unitType: UnitType, position: Position, playerId: string): Unit | null {
+    // Check if player has required technology
+    const player = this.gameState.players.find(p => p.id === playerId);
+    if (!player) return null;
+
+    const stats = getUnitStats(unitType);
+    if (stats.requiredTechnology) {
+      const hasTech = player.technologies.includes(stats.requiredTechnology);
+      if (!hasTech) return null;
+    }
+
+    const unit = createUnit(
+      `unit-${Date.now()}-${Math.random()}`,
+      unitType,
+      position,
+      playerId
+    );
+
+    this.gameState.units.push(unit);
+    this.emit('unitCreated', unit);
+    return unit;
+  }
+
+  // Get available unit types for a player based on their technology
+  public getAvailableUnits(playerId: string): UnitType[] {
+    const player = this.gameState.players.find(p => p.id === playerId);
+    if (!player) return [];
+
+    return Object.values(UnitType).filter(unitType => {
+      const stats = getUnitStats(unitType);
+      return !stats.requiredTechnology || player.technologies.includes(stats.requiredTechnology);
+    });
+  }
+
+  // Get unit information including stats
+  public getUnitInfo(unitType: UnitType) {
+    return getUnitStats(unitType);
   }
 
   // Get current game state
@@ -252,7 +338,7 @@ export class Game {
     // Check if player has required technology
     const governmentData = GOVERNMENTS[newGovernment];
     if (governmentData.requiredTechnology) {
-      const hasTech = player.technologies.some((tech: any) => tech.name === governmentData.requiredTechnology);
+      const hasTech = player.technologies.includes(governmentData.requiredTechnology);
       if (!hasTech) return false;
     }
 
@@ -276,7 +362,7 @@ export class Game {
       if (gov.type === GovernmentType.DESPOTISM || gov.type === GovernmentType.ANARCHY) return;
       
       if (!gov.requiredTechnology || 
-          player.technologies.some((tech: any) => tech.name === gov.requiredTechnology)) {
+          player.technologies.includes(gov.requiredTechnology)) {
         available.push(gov.type);
       }
     });
@@ -290,6 +376,48 @@ export class Game {
     if (!player) return null;
 
     return GOVERNMENTS[player.government as GovernmentType].effects;
+  }
+
+  // Get available technologies for research
+  public getAvailableTechnologies(playerId: string): TechnologyType[] {
+    const player = this.gameState.players.find(p => p.id === playerId);
+    if (!player) return [];
+
+    return Object.values(TechnologyType).filter(techType => {
+      // Don't show already known technologies
+      if (player.technologies.includes(techType)) return false;
+      
+      // Check if prerequisites are met
+      return canResearch(techType, player.technologies);
+    });
+  }
+
+  // Research a technology
+  public researchTechnology(playerId: string, technologyType: TechnologyType): boolean {
+    const player = this.gameState.players.find(p => p.id === playerId);
+    if (!player) return false;
+
+    // Check if already researched
+    if (player.technologies.includes(technologyType)) return false;
+
+    // Check if prerequisites are met
+    if (!canResearch(technologyType, player.technologies)) return false;
+
+    // Check if player has enough science points
+    const cost = getResearchCost(technologyType);
+    if (player.science < cost) return false;
+
+    // Research the technology
+    player.science -= cost;
+    player.technologies.push(technologyType);
+
+    this.emit('technologyResearched', { playerId, technologyType });
+    return true;
+  }
+
+  // Get technology information
+  public getTechnologyInfo(technologyType: TechnologyType) {
+    return getTechnology(technologyType);
   }
 
   // Event system

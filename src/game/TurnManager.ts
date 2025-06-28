@@ -1,4 +1,6 @@
-import type { GameState, Unit, City } from '../types/game';
+import type { GameState, Unit, City, UnitType } from '../types/game';
+import { createUnit } from './Units';
+import { getUnitStats } from './UnitDefinitions';
 
 export class TurnManager {
   
@@ -22,14 +24,16 @@ export class TurnManager {
     }
   }
 
-  // Restore movement points for all units of current player
+  // Update movement points for all units of current player using new unit system
   private restoreMovementPoints(gameState: GameState): void {
     const currentPlayer = gameState.currentPlayer;
     
     gameState.units
       .filter(unit => unit.playerId === currentPlayer)
       .forEach(unit => {
-        unit.movementPoints = unit.maxMovementPoints;
+        const stats = getUnitStats(unit.type);
+        unit.maxMovementPoints = stats.movement;
+        unit.movementPoints = stats.movement;
       });
   }
 
@@ -121,32 +125,14 @@ export class TurnManager {
 
   // Create a new unit
   private createUnit(city: City, unitType: string, gameState: GameState): void {
-    const newUnit: Unit = {
-      id: `unit-${Date.now()}-${Math.random()}`,
-      type: unitType as any,
-      position: city.position,
-      movementPoints: this.getUnitMovementPoints(unitType),
-      maxMovementPoints: this.getUnitMovementPoints(unitType),
-      health: 100,
-      maxHealth: 100,
-      playerId: city.playerId,
-      experience: 0
-    };
+    const newUnit = createUnit(
+      `unit-${Date.now()}-${Math.random()}`,
+      unitType as UnitType,
+      city.position,
+      city.playerId
+    );
 
     gameState.units.push(newUnit);
-  }
-
-  // Get movement points for unit type
-  private getUnitMovementPoints(unitType: string): number {
-    switch (unitType) {
-      case 'scout': return 3;
-      case 'settler': return 2;
-      case 'warrior': return 2;
-      case 'archer': return 2;
-      case 'spearman': return 2;
-      case 'catapult': return 1;
-      default: return 2;
-    }
   }
 
   // Create a new building

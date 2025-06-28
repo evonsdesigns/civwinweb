@@ -50,109 +50,110 @@ export class GameRenderer {
     
     // Check all 8 directions
     const directions = [
-      { dx: -1, dy: -1, mask: ConnectionMask.NORTHWEST },
       { dx: 0, dy: -1, mask: ConnectionMask.NORTH },
       { dx: 1, dy: -1, mask: ConnectionMask.NORTHEAST },
-      { dx: -1, dy: 0, mask: ConnectionMask.WEST },
       { dx: 1, dy: 0, mask: ConnectionMask.EAST },
-      { dx: -1, dy: 1, mask: ConnectionMask.SOUTHWEST },
+      { dx: 1, dy: 1, mask: ConnectionMask.SOUTHEAST },
       { dx: 0, dy: 1, mask: ConnectionMask.SOUTH },
-      { dx: 1, dy: 1, mask: ConnectionMask.SOUTHEAST }
+      { dx: -1, dy: 1, mask: ConnectionMask.SOUTHWEST },
+      { dx: -1, dy: 0, mask: ConnectionMask.WEST },
+      { dx: -1, dy: -1, mask: ConnectionMask.NORTHWEST }
     ];
 
     for (const dir of directions) {
       let checkX = x + dir.dx;
-      let checkY = y + dir.dy;
+      const checkY = y + dir.dy;
       
       // Handle horizontal wrapping
       checkX = ((checkX % mapWidth) + mapWidth) % mapWidth;
       
-      // Check bounds for Y (no vertical wrapping)
+      // Check vertical bounds (no wrapping)
       if (checkY >= 0 && checkY < mapHeight) {
-        const neighborTile = this.currentWorldMap[checkY][checkX];
-        if (neighborTile && neighborTile.terrain === terrain) {
+        const adjacentTerrain = this.currentWorldMap[checkY][checkX].terrain;
+        
+        // Check if the adjacent tile has the same terrain type
+        if (adjacentTerrain === terrain) {
           connections |= dir.mask;
         }
       }
     }
-
-    return connections as ConnectionPattern;
+    
+    return connections;
   }
 
-  // Render the map
+  // Render the map tiles
   private renderMap(worldMap: Tile[][]): void {
-    const renderContext = this.renderer.getRenderContext();
+    console.debug('Rendering world map', worldMap);
+    const visibleRange = this.renderer.getVisibleTileRange();
+    console.debug('Visible tile range:', visibleRange);
     const mapWidth = worldMap[0]?.length || 80;
     const mapHeight = worldMap.length || 50;
     
-    // Calculate visible range with some padding for smooth scrolling
-    const tilesWidth = Math.ceil(renderContext.canvas.width / this.tileSize) + 2;
-    const tilesHeight = Math.ceil(renderContext.canvas.height / this.tileSize) + 2;
+    console.debug(`renderMap: visibleRange=${JSON.stringify(visibleRange)}, mapSize=${mapWidth}x${mapHeight}`);
     
-    const startX = Math.floor(renderContext.viewport.x) - 1;
-    const endX = startX + tilesWidth;
-    const startY = Math.max(0, Math.floor(renderContext.viewport.y) - 1);
-    const endY = Math.min(mapHeight - 1, startY + tilesHeight);
-
-    for (let y = startY; y <= endY; y++) {
-      for (let x = startX; x <= endX; x++) {
-        // Handle horizontal wrapping
-        const wrappedX = ((x % mapWidth) + mapWidth) % mapWidth;
-        
-        if (y >= 0 && y < mapHeight) {
-          const tile = worldMap[y][wrappedX];
-          const connectionPattern = this.analyzeConnections(wrappedX, y, tile.terrain);
-          this.renderTile(tile, x, y, connectionPattern);
+    for (let y = visibleRange.startY; y < visibleRange.endY && y < mapHeight; y++) {
+      if (y >= 0) {
+        for (let x = visibleRange.startX; x < visibleRange.endX; x++) {
+          const wrappedX = ((x % mapWidth) + mapWidth) % mapWidth;
+          
+          if (wrappedX >= 0 && wrappedX < mapWidth) {
+            this.renderTileWithConnections(worldMap[y][wrappedX], x, y);
+            console.debug('rendered tile at', x, y);
+          }
         }
       }
     }
   }
 
-  // Render a single tile
-  private renderTile(tile: Tile, x: number, y: number, connectionPattern: ConnectionPattern): void {
-    const screenPos = this.renderer.worldToScreen(x, y);
+  // Render a single tile with connection analysis
+  private renderTileWithConnections(tile: Tile, screenX: number, screenY: number): void {
+    const screenPos = this.renderer.worldToScreen(screenX, screenY);
+    const renderContext = this.renderer.getRenderContext();
+    const tileSize = renderContext.tileSize; // Fixed tile size, no zoom
     
-    const terrainSprite = TerrainManager.getTerrainSprite(
-      tile.terrain, 
-      this.tileSize,
-      connectionPattern
-    );
+    console.debug(`Rendering tile at world(${tile.position.x},${tile.position.y}) screen(${screenX},${screenY}) screenPos(${screenPos.x},${screenPos.y}) terrain:${tile.terrain}`);
     
+    // Analyze connections for terrain types that benefit from it
+    const shouldUseConnections = TerrainManager.shouldUseConnections(tile.terrain);
+    let connections = 0;
+    
+    if (shouldUseConnections) {
+      connections = this.analyzeConnections(tile.position.x, tile.position.y, tile.terrain);
+    }
+    
+    // Render terrain using sprites with connection information
+    const terrainSprite = TerrainManager.getTerrainSprite(tile.terrain, tileSize, connections);
     if (terrainSprite) {
-      // Draw the terrain sprite
-      const ctx = this.renderer.getContext();
-      ctx.drawImage(
-        terrainSprite,
-        screenPos.x,
-        screenPos.y,
-        this.tileSize,
-        this.tileSize
-      );
+      console.debug(`Drawing sprite for ${tile.terrain} at (${screenPos.x},${screenPos.y}) sprite=${terrainSprite.width}x${terrainSprite.height} drawing=${tileSize}x${tileSize}`);
+      this.renderer.drawSprite(terrainSprite, screenPos.x, screenPos.y, tileSize, tileSize);
     } else {
-      // Fallback to colored rectangle if sprite not available
-      const color = this.getTerrainColor(tile.terrain);
-      this.renderer.fillRect(
-        screenPos.x,
-        screenPos.y,
-        this.tileSize,
-        this.tileSize,
-        color
+      // Fallback to solid color if sprite not available
+      console.debug(`Using fallback color for ${tile.terrain} at (${screenPos.x},${screenPos.y})`);
+      const terrainColor = TerrainManager.getTerrainColor(tile.terrain);
+      this.renderer.fillRect(screenPos.x, screenPos.y, tileSize, tileSize, terrainColor);
+    }
+    
+    // Render resources
+    if (tile.resources && tile.resources.length > 0) {
+      const resourceColor = TerrainManager.getResourceColor(tile.resources[0]);
+      this.renderer.fillCircle(
+        screenPos.x + tileSize / 2, 
+        screenPos.y + tileSize / 2, 
+        tileSize / 5, // Increased from /6 to /5 for better visibility
+        resourceColor
       );
     }
-  }
 
-  // Get fallback color for terrain
-  private getTerrainColor(terrain: TerrainType): string {
-    switch (terrain) {
-      case TerrainType.GRASSLAND: return '#90EE90';
-      case TerrainType.DESERT: return '#F4A460';
-      case TerrainType.FOREST: return '#228B22';
-      case TerrainType.HILLS: return '#8B7355';
-      case TerrainType.MOUNTAINS: return '#696969';
-      case TerrainType.OCEAN: return '#4682B4';
-      case TerrainType.RIVER: return '#87CEEB';
-      case TerrainType.JUNGLE: return '#006400';
-      default: return '#D2691E';
+    // Render improvements
+    if (tile.improvements && tile.improvements.length > 0) {
+      this.renderer.strokeRect(
+        screenPos.x + 2, 
+        screenPos.y + 2, 
+        tileSize - 4, 
+        tileSize - 4, 
+        '#000000', 
+        2
+      );
     }
   }
 
@@ -165,25 +166,24 @@ export class GameRenderer {
   private renderCity(city: City): void {
     const screenPos = this.renderer.worldToScreen(city.position.x, city.position.y);
     const renderContext = this.renderer.getRenderContext();
-    const tileSize = renderContext.tileSize;
+    const tileSize = renderContext.tileSize; // Fixed tile size, no zoom
     
-    // City icon
+    // City building icon
     this.renderer.fillRect(
-      screenPos.x + tileSize / 4,
-      screenPos.y + tileSize / 4,
-      tileSize / 2,
-      tileSize / 2,
-      '#8B4513'
+      screenPos.x + tileSize / 4, 
+      screenPos.y + tileSize / 4, 
+      tileSize / 2, 
+      tileSize / 2, 
+      '#8D6E63'
     );
     
-    // City name
-    this.renderer.fillText(
-      city.name,
-      screenPos.x + tileSize / 2,
+    // City name and population (always show since zoom is disabled)
+    this.renderer.drawText(
+      `${city.name} (${city.population})`,
+      screenPos.x,
       screenPos.y - 5,
-      '#FFFFFF',
-      '12px Arial',
-      'center'
+      '#000000',
+      '12px Arial' // Increased from 10px for better visibility
     );
   }
 
@@ -201,13 +201,13 @@ export class GameRenderer {
     // Get unit stats to determine category and rendering
     const stats = getUnitStats(unit.type);
     const unitColor = this.getUnitColor(unit.type, stats.category);
-    const unitSymbol = this.getUnitSymbol(unit.type);
+    const unitSymbol = this.getUnitSymbol(unit.type, stats.category);
     
     // Unit body - different shapes for different categories
     this.renderUnitBody(screenPos, tileSize, stats.category, unitColor);
     
     // Unit symbol/text
-    this.renderUnitSymbol(screenPos, tileSize, unitSymbol);
+    this.renderUnitSymbol(screenPos, tileSize, unitSymbol, unit.type);
     
     // Veteran indicator
     if (unit.isVeteran) {
@@ -235,15 +235,6 @@ export class GameRenderer {
     if (unit.health < unit.maxHealth) {
       this.renderHealthBar(screenPos, tileSize, unit.health, unit.maxHealth);
     }
-    
-    // Movement points indicator
-    this.renderer.fillText(
-      unit.movementPoints.toString(),
-      screenPos.x + 2,
-      screenPos.y + 14,
-      '#FFFFFF',
-      '12px Arial'
-    );
   }
 
   // Get color for unit type
@@ -271,9 +262,24 @@ export class GameRenderer {
           default: return '#FF5722';
         }
       case UnitCategory.NAVAL:
-        return '#2196F3';
+        switch (unitType) {
+          case UnitType.TRIREME: return '#3F51B5';
+          case UnitType.SAIL: return '#2196F3';
+          case UnitType.FRIGATE: return '#1976D2';
+          case UnitType.IRONCLAD: return '#455A64';
+          case UnitType.CRUISER: return '#546E7A';
+          case UnitType.BATTLESHIP: return '#37474F';
+          case UnitType.CARRIER: return '#263238';
+          case UnitType.TRANSPORT: return '#607D8B';
+          case UnitType.SUBMARINE: return '#424242';
+          default: return '#2196F3';
+        }
       case UnitCategory.AIR:
-        return '#E91E63';
+        switch (unitType) {
+          case UnitType.FIGHTER: return '#E91E63';
+          case UnitType.BOMBER: return '#C2185B';
+          default: return '#E91E63';
+        }
       case UnitCategory.SPECIAL:
         switch (unitType) {
           case UnitType.SETTLER: return '#4CAF50';
@@ -289,7 +295,8 @@ export class GameRenderer {
   }
 
   // Get symbol for unit type  
-  private getUnitSymbol(unitType: UnitType): string {
+  private getUnitSymbol(unitType: UnitType, category: UnitCategory): string {
+    // Use first letter of unit type for now, could be expanded to custom symbols
     switch (unitType) {
       case UnitType.SETTLER: return 'S';
       case UnitType.DIPLOMAT: return 'D';
@@ -366,14 +373,14 @@ export class GameRenderer {
   }
 
   // Render unit symbol/text
-  private renderUnitSymbol(screenPos: {x: number, y: number}, tileSize: number, symbol: string): void {
+  private renderUnitSymbol(screenPos: {x: number, y: number}, tileSize: number, symbol: string, unitType: UnitType): void {
     const centerX = screenPos.x + tileSize / 2;
     const centerY = screenPos.y + tileSize / 2;
     
     this.renderer.fillText(
       symbol,
       centerX,
-      centerY + 2,
+      centerY + 2, // Slight offset for better centering
       'white',
       `${Math.floor(tileSize / 8)}px Arial`,
       'center'
@@ -407,25 +414,35 @@ export class GameRenderer {
   // Render health bar
   private renderHealthBar(screenPos: {x: number, y: number}, tileSize: number, health: number, maxHealth: number): void {
     const healthBarWidth = tileSize * 0.8;
-    const healthBarHeight = 4;
-    const healthPercentage = health / maxHealth;
+      const healthBarHeight = 4;
+      const healthPercentage = unit.health / unit.maxHealth;
+      
+      // Background
+      this.renderer.fillRect(
+        screenPos.x + (tileSize - healthBarWidth) / 2,
+        screenPos.y + tileSize - healthBarHeight - 2,
+        healthBarWidth,
+        healthBarHeight,
+        '#000000'
+      );
+      
+      // Health
+      this.renderer.fillRect(
+        screenPos.x + (tileSize - healthBarWidth) / 2,
+        screenPos.y + tileSize - healthBarHeight - 2,
+        healthBarWidth * healthPercentage,
+        healthBarHeight,
+        '#4CAF50'
+      );
+    }
     
-    // Background
-    this.renderer.fillRect(
-      screenPos.x + (tileSize - healthBarWidth) / 2,
-      screenPos.y + tileSize - healthBarHeight - 2,
-      healthBarWidth,
-      healthBarHeight,
-      '#FF0000'
-    );
-    
-    // Health
-    this.renderer.fillRect(
-      screenPos.x + (tileSize - healthBarWidth) / 2,
-      screenPos.y + tileSize - healthBarHeight - 2,
-      healthBarWidth * healthPercentage,
-      healthBarHeight,
-      '#4CAF50'
+    // Movement points indicator (always show since zoom is disabled)
+    this.renderer.drawText(
+      unit.movementPoints.toString(),
+      screenPos.x + 2,
+      screenPos.y + 14, // Adjusted position for larger tiles
+      '#FFFFFF',
+      '12px Arial' // Increased from 10px for better visibility
     );
   }
 
@@ -434,7 +451,7 @@ export class GameRenderer {
     if (this.selectedTile) {
       const screenPos = this.renderer.worldToScreen(this.selectedTile.x, this.selectedTile.y);
       const renderContext = this.renderer.getRenderContext();
-      const tileSize = renderContext.tileSize;
+      const tileSize = renderContext.tileSize; // Fixed tile size, no zoom
       
       this.renderer.strokeRect(
         screenPos.x, 
@@ -450,8 +467,10 @@ export class GameRenderer {
   // Render grid overlay
   private renderGrid(): void {
     const renderContext = this.renderer.getRenderContext();
+    // Always show grid since zoom is disabled
+    
     const visibleRange = this.renderer.getVisibleTileRange();
-    const tileSize = renderContext.tileSize;
+    const tileSize = renderContext.tileSize; // Fixed tile size, no zoom
     
     // Vertical lines
     for (let x = visibleRange.startX; x <= visibleRange.endX; x++) {
@@ -459,7 +478,7 @@ export class GameRenderer {
       this.renderer.drawLine(
         screenX, 
         0, 
-        screenX,
+        screenX, 
         renderContext.canvas.height, 
         'rgba(0, 0, 0, 0.1)', 
         1

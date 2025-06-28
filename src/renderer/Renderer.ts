@@ -82,7 +82,7 @@ export class Renderer {
 
   // Draw a sprite/image
   public drawSprite(sprite: HTMLCanvasElement, x: number, y: number, width: number, height: number): void {
-    console.log(`drawSprite: sprite ${sprite.width}x${sprite.height} at (${x},${y}) size ${width}x${height}`);
+    console.debug   (`drawSprite: sprite ${sprite.width}x${sprite.height} at (${x},${y}) size ${width}x${height}`);
     this.ctx.drawImage(sprite, x, y, width, height);
   }
 
@@ -151,6 +151,66 @@ export class Renderer {
 
   public zoomViewport(): void {
     // Zoom disabled for now - do nothing
+  }
+
+  // Fill text
+  public fillText(text: string, x: number, y: number, color: string, font: string = '12px Arial', align: CanvasTextAlign = 'left'): void {
+    this.ctx.fillStyle = color;
+    this.ctx.font = font;
+    this.ctx.textAlign = align;
+    this.ctx.textBaseline = 'middle';
+    this.ctx.fillText(text, x, y);
+  }
+
+  // Fill a triangle
+  public fillTriangle(x1: number, y1: number, x2: number, y2: number, x3: number, y3: number, color: string): void {
+    this.ctx.fillStyle = color;
+    this.ctx.beginPath();
+    this.ctx.moveTo(x1, y1);
+    this.ctx.lineTo(x2, y2);
+    this.ctx.lineTo(x3, y3);
+    this.ctx.closePath();
+    this.ctx.fill();
+  }
+
+  // Fill a diamond (rotated square)
+  public fillDiamond(centerX: number, centerY: number, size: number, color: string): void {
+    this.ctx.fillStyle = color;
+    this.ctx.beginPath();
+    this.ctx.moveTo(centerX, centerY - size);
+    this.ctx.lineTo(centerX + size, centerY);
+    this.ctx.lineTo(centerX, centerY + size);
+    this.ctx.lineTo(centerX - size, centerY);
+    this.ctx.closePath();
+    this.ctx.fill();
+  }
+
+  // Draw text (alias for fillText for backward compatibility)
+  public drawText(text: string, x: number, y: number, color: string, font: string = '12px Arial'): void {
+    this.fillText(text, x, y, color, font);
+  }
+
+  // Draw a line
+  public drawLine(x1: number, y1: number, x2: number, y2: number, color: string, width: number = 1): void {
+    this.ctx.strokeStyle = color;
+    this.ctx.lineWidth = width;
+    this.ctx.beginPath();
+    this.ctx.moveTo(x1, y1);
+    this.ctx.lineTo(x2, y2);
+    this.ctx.stroke();
+  }
+
+  // Get visible tile range for the current viewport
+  public getVisibleTileRange(): { startX: number, endX: number, startY: number, endY: number } {
+    const tilesWidth = Math.ceil(this.canvas.width / this.tileSize) + 1;
+    const tilesHeight = Math.ceil(this.canvas.height / this.tileSize) + 1;
+    
+    return {
+      startX: Math.floor(this.viewport.x),
+      endX: Math.floor(this.viewport.x) + tilesWidth,
+      startY: Math.floor(this.viewport.y),
+      endY: Math.floor(this.viewport.y) + tilesHeight
+    };
   }
 
   // Get context for advanced drawing operations

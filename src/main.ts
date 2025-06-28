@@ -3,6 +3,7 @@ import { Game } from './game/Game.js';
 import { Renderer } from './renderer/Renderer.js';
 import { GameRenderer } from './renderer/GameRenderer.js';
 import { InputHandler } from './utils/InputHandler.js';
+import { MapScenario } from './types/game.js';
 
 class CivWinApp {
   private game: Game;
@@ -10,6 +11,7 @@ class CivWinApp {
   private gameRenderer: GameRenderer;
   private inputHandler: InputHandler;
   private canvas: HTMLCanvasElement;
+  private currentScenario: MapScenario = 'random';
 
   constructor() {
     // Get canvas element
@@ -50,11 +52,11 @@ class CivWinApp {
     this.requestRender();
   }
 
-  // Initialize the game with default players
+  // Initialize the game with default players and current scenario
   private initializeGame(): void {
-    console.log('Initializing game with players');
+    console.log(`Initializing game with ${this.currentScenario} scenario`);
     const playerNames = ['Player', 'AI Player 1', 'AI Player 2'];
-    this.game.initializeGame(playerNames);
+    this.game.initializeGame(playerNames, this.currentScenario);
     console.log('Game initialization completed');
   }
 
@@ -108,6 +110,23 @@ class CivWinApp {
       pauseBtn.addEventListener('click', () => {
         this.game.togglePause();
         this.requestRender();
+      });
+    }
+
+    // Scenario selection
+    const scenarioSelect = document.querySelector<HTMLSelectElement>('#scenario-select');
+    if (scenarioSelect) {
+      scenarioSelect.addEventListener('change', () => {
+        this.currentScenario = scenarioSelect.value as MapScenario;
+        this.initializeGame(); // Restart game with new scenario
+      });
+    }
+
+    // New game button
+    const newGameBtn = document.querySelector<HTMLButtonElement>('#new-game-btn');
+    if (newGameBtn) {
+      newGameBtn.addEventListener('click', () => {
+        this.initializeGame(); // Restart game with current scenario
       });
     }
   }

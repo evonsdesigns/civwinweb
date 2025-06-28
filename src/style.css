@@ -75,6 +75,32 @@ body {
   font-weight: 500;
 }
 
+#scenario-controls {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  font-size: 14px;
+}
+
+#scenario-controls label {
+  color: #ecf0f1;
+  font-weight: 500;
+}
+
+#scenario-select {
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: white;
+  padding: 5px 8px;
+  border-radius: 4px;
+  font-size: 13px;
+}
+
+#scenario-select option {
+  background: #2c3e50;
+  color: white;
+}
+
 .player-info {
   display: flex;
   gap: 15px;
