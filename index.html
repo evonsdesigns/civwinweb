@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>CivWin - Civilization-like Game</title>
+  </head>
+  <body>
+    <div id="app">
+      <div id="game-ui">
+        <div id="game-toolbar">
+          <h1>CivWin</h1>
+          <div id="game-info">
+            <span id="turn-counter">Turn: 1</span>
+            <span id="score">Score: 0</span>
+          </div>
+        </div>
+        <canvas id="game-canvas" width="1024" height="768"></canvas>
+        <div id="game-controls">
+          <button id="end-turn-btn">End Turn</button>
+          <button id="pause-btn">Pause</button>
+        </div>
+      </div>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
