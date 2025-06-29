@@ -29,6 +29,7 @@ export class MusicPlayer {
     this.audio = new Audio();
     this.initializeTracks();
     this.initializeUI();
+    this.restoreSettings();
     this.setupEventListeners();
     this.loadCurrentTrack();
   }
@@ -178,6 +179,7 @@ export class MusicPlayer {
       this.isPlaying = true;
       this.playPauseBtn.textContent = '⏸';
       this.playPauseBtn.title = 'Pause';
+      this.saveSettings();
     }).catch(error => {
       console.error('Error playing audio:', error);
     });
@@ -191,6 +193,7 @@ export class MusicPlayer {
     this.isPlaying = false;
     this.playPauseBtn.textContent = '▶';
     this.playPauseBtn.title = 'Play';
+    this.saveSettings();
   }
 
   /**
@@ -248,6 +251,7 @@ export class MusicPlayer {
       this.currentTrackIndex = this.getCurrentTrackIndex();
     }
     
+    this.saveSettings();
     console.log(`Shuffle ${this.isShuffleEnabled ? 'enabled' : 'disabled'}`);
   }
 
@@ -312,6 +316,55 @@ export class MusicPlayer {
   }
 
   /**
+   * Restore settings from localStorage
+   */
+  private restoreSettings(): void {
+    // Restore volume setting
+    const savedVolume = localStorage.getItem('civwin-music-volume');
+    if (savedVolume !== null) {
+      const volume = parseInt(savedVolume);
+      if (volume >= 0 && volume <= 100) {
+        this.volumeSlider.value = volume.toString();
+        this.audio.volume = volume / 100;
+        this.volumeValue.textContent = `${volume}%`;
+      }
+    }
+
+    // Restore shuffle setting
+    const savedShuffle = localStorage.getItem('civwin-music-shuffle');
+    if (savedShuffle === 'true') {
+      this.isShuffleEnabled = true;
+      this.shuffleBtn.classList.add('active');
+      this.shuffleBtn.title = 'Shuffle: ON';
+    }
+
+    // Update volume icon to match restored volume
+    this.updateVolumeIcon();
+  }
+
+  /**
+   * Save settings to localStorage
+   */
+  private saveSettings(): void {
+    // Save volume setting
+    localStorage.setItem('civwin-music-volume', this.volumeSlider.value);
+    
+    // Save shuffle setting
+    localStorage.setItem('civwin-music-shuffle', this.isShuffleEnabled.toString());
+    
+    // Save play state (for next session auto-resume)
+    localStorage.setItem('civwin-music-playing', this.isPlaying.toString());
+  }
+
+  /**
+   * Check if music should auto-resume based on previous session
+   */
+  private shouldAutoResume(): boolean {
+    const savedPlayState = localStorage.getItem('civwin-music-playing');
+    return savedPlayState === 'true';
+  }
+
+  /**
    * Update volume based on slider value
    */
   private updateVolume(): void {
@@ -319,6 +372,7 @@ export class MusicPlayer {
     this.audio.volume = volume;
     this.volumeValue.textContent = `${this.volumeSlider.value}%`;
     this.updateVolumeIcon();
+    this.saveSettings();
   }
 
   /**
@@ -405,11 +459,13 @@ export class MusicPlayer {
   }
 
   /**
-   * Auto-start playing the first track
+   * Auto-start playing the first track (respects previous session state)
    */
   public autoStart(): void {
     setTimeout(() => {
-      this.play();
+      if (this.shouldAutoResume()) {
+        this.play();
+      }
     }, 1000); // Delay to ensure everything is loaded
   }
 }
