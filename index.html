@@ -102,6 +102,13 @@
               <button id="play-pause" title="Play/Pause">▶</button>
               <button id="next-track" title="Next Track">⏭</button>
               <button id="shuffle-toggle" title="Toggle Shuffle">🔀</button>
+              <div id="volume-control">
+                <span id="volume-icon">🔊</span>
+                <div id="volume-dropdown" class="volume-dropdown">
+                  <input type="range" id="volume-slider" min="0" max="100" value="30" title="Volume">
+                  <span id="volume-value">30%</span>
+                </div>
+              </div>
             </div>
             <div id="music-info">
               <span id="current-track">No track loaded</span>

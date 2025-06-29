@@ -16,6 +16,10 @@ export class MusicPlayer {
   private prevBtn!: HTMLButtonElement;
   private nextBtn!: HTMLButtonElement;
   private shuffleBtn!: HTMLButtonElement;
+  private volumeIcon!: HTMLSpanElement;
+  private volumeSlider!: HTMLInputElement;
+  private volumeDropdown!: HTMLElement;
+  private volumeValue!: HTMLSpanElement;
   private currentTrackSpan!: HTMLSpanElement;
   private progressBar!: HTMLElement;
   private progressFill!: HTMLElement;
@@ -60,6 +64,10 @@ export class MusicPlayer {
     this.prevBtn = document.querySelector('#prev-track')!;
     this.nextBtn = document.querySelector('#next-track')!;
     this.shuffleBtn = document.querySelector('#shuffle-toggle')!;
+    this.volumeIcon = document.querySelector('#volume-icon')!;
+    this.volumeSlider = document.querySelector('#volume-slider')!;
+    this.volumeDropdown = document.querySelector('#volume-dropdown')!;
+    this.volumeValue = document.querySelector('#volume-value')!;
     this.currentTrackSpan = document.querySelector('#current-track')!;
     this.progressBar = document.querySelector('#progress-bar')!;
     this.progressFill = document.querySelector('#progress-fill')!;
@@ -76,6 +84,21 @@ export class MusicPlayer {
     this.nextBtn.addEventListener('click', () => this.nextTrack());
     this.shuffleBtn.addEventListener('click', () => this.toggleShuffle());
 
+    // Volume control listeners
+    this.volumeSlider.addEventListener('input', () => this.updateVolume());
+    this.volumeIcon.addEventListener('click', () => this.toggleVolumeDropdown());
+    this.volumeIcon.addEventListener('mouseenter', () => this.showVolumeDropdown());
+    this.volumeIcon.addEventListener('mouseleave', () => this.hideVolumeDropdown());
+    this.volumeDropdown.addEventListener('mouseenter', () => this.showVolumeDropdown());
+    this.volumeDropdown.addEventListener('mouseleave', () => this.hideVolumeDropdown());
+
+    // Hide dropdown when clicking outside
+    document.addEventListener('click', (e) => {
+      if (!this.volumeIcon.contains(e.target as Node) && !this.volumeDropdown.contains(e.target as Node)) {
+        this.hideVolumeDropdown();
+      }
+    });
+
     // Progress bar interaction
     this.progressBar.addEventListener('click', (e) => this.seekToPosition(e));
 
@@ -86,8 +109,9 @@ export class MusicPlayer {
     this.audio.addEventListener('error', (e) => this.handleAudioError(e));
     this.audio.addEventListener('canplay', () => this.handleCanPlay());
     
-    // Set volume to a reasonable level
-    this.audio.volume = 0.3;
+    // Set volume to match slider value
+    this.audio.volume = parseInt(this.volumeSlider.value) / 100;
+    this.updateVolumeIcon();
   }
 
   /**
@@ -285,6 +309,78 @@ export class MusicPlayer {
    */
   private handleCanPlay(): void {
     this.updateTimeDisplay();
+  }
+
+  /**
+   * Update volume based on slider value
+   */
+  private updateVolume(): void {
+    const volume = parseInt(this.volumeSlider.value) / 100;
+    this.audio.volume = volume;
+    this.volumeValue.textContent = `${this.volumeSlider.value}%`;
+    this.updateVolumeIcon();
+  }
+
+  /**
+   * Update the volume icon based on current volume level
+   */
+  private updateVolumeIcon(): void {
+    const volume = this.audio.volume;
+    
+    if (volume === 0) {
+      this.volumeIcon.textContent = '🔇';
+      this.volumeIcon.title = 'Unmute';
+    } else if (volume < 0.3) {
+      this.volumeIcon.textContent = '🔈';
+      this.volumeIcon.title = 'Low Volume';
+    } else if (volume < 0.8) {
+      this.volumeIcon.textContent = '🔉';
+      this.volumeIcon.title = 'Medium Volume';
+    } else {
+      this.volumeIcon.textContent = '🔊';
+      this.volumeIcon.title = 'High Volume';
+    }
+  }
+
+  /**
+   * Toggle mute on/off
+   */
+  private toggleMute(): void {
+    if (this.audio.volume > 0) {
+      // Store current volume and mute
+      this.volumeSlider.dataset.previousVolume = this.volumeSlider.value;
+      this.audio.volume = 0;
+      this.volumeSlider.value = '0';
+      this.volumeValue.textContent = '0%';
+    } else {
+      // Restore previous volume or set to 50% if no previous volume
+      const previousVolume = this.volumeSlider.dataset.previousVolume || '50';
+      this.volumeSlider.value = previousVolume;
+      this.audio.volume = parseInt(previousVolume) / 100;
+      this.volumeValue.textContent = `${previousVolume}%`;
+    }
+    this.updateVolumeIcon();
+  }
+
+  /**
+   * Show the volume dropdown
+   */
+  private showVolumeDropdown(): void {
+    this.volumeDropdown.classList.add('show');
+  }
+
+  /**
+   * Hide the volume dropdown
+   */
+  private hideVolumeDropdown(): void {
+    this.volumeDropdown.classList.remove('show');
+  }
+
+  /**
+   * Toggle the volume dropdown visibility
+   */
+  private toggleVolumeDropdown(): void {
+    this.volumeDropdown.classList.toggle('show');
   }
 
   /**
