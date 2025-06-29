@@ -5,6 +5,7 @@ import { createUnit } from './Units';
 import { getUnitStats } from './UnitDefinitions';
 import { CombatSystem, CombatResult } from './CombatSystem';
 import { getTechnology, canResearch, getResearchCost } from './TechnologyDefinitions';
+import { TerrainManager } from '../terrain/index';
 
 export class Game {
   private gameState: GameState;
@@ -110,10 +111,50 @@ export class Game {
   private findStartingPosition(mapWidth: number, mapHeight: number, playerIndex: number): Position {
     // Simple placement algorithm - spread players across the map
     const spacing = Math.floor(mapWidth / this.gameState.players.length);
-    const x = Math.min(spacing * playerIndex + 5, mapWidth - 1);
-    const y = Math.floor(mapHeight / 2);
+    const initialX = Math.min(spacing * playerIndex + 5, mapWidth - 1);
+    const initialY = Math.floor(mapHeight / 2);
     
-    return { x, y };
+    // Check if the initial position is suitable
+    if (this.isValidStartingPosition(initialX, initialY, mapWidth, mapHeight)) {
+      return { x: initialX, y: initialY };
+    }
+    
+    // If initial position is not suitable, search in expanding circles
+    const maxSearchRadius = Math.min(mapWidth, mapHeight) / 4;
+    
+    for (let radius = 1; radius <= maxSearchRadius; radius++) {
+      for (let dx = -radius; dx <= radius; dx++) {
+        for (let dy = -radius; dy <= radius; dy++) {
+          // Only check positions on the current radius circle
+          if (Math.abs(dx) !== radius && Math.abs(dy) !== radius) continue;
+          
+          const x = initialX + dx;
+          const y = initialY + dy;
+          
+          if (this.isValidStartingPosition(x, y, mapWidth, mapHeight)) {
+            return { x, y };
+          }
+        }
+      }
+    }
+    
+    // Fallback: return initial position even if not ideal
+    console.warn(`Could not find suitable starting position for player ${playerIndex}, using fallback`);
+    return { x: initialX, y: initialY };
+  }
+  
+  // Check if a position is valid for starting (passable terrain that allows city founding)
+  private isValidStartingPosition(x: number, y: number, mapWidth: number, mapHeight: number): boolean {
+    // Check bounds
+    if (x < 0 || x >= mapWidth || y < 0 || y >= mapHeight) {
+      return false;
+    }
+    
+    // Get terrain at this position
+    const terrainType = this.gameState.worldMap[y][x].terrain;
+    
+    // Check if terrain is passable and allows city founding
+    return TerrainManager.isPassable(terrainType) && TerrainManager.canFoundCity(terrainType);
   }
 
   // Game turn management
