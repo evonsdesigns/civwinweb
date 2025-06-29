@@ -2,10 +2,12 @@ import './style.css';
 import { Game } from './game/Game.js';
 import { Renderer } from './renderer/Renderer.js';
 import { GameRenderer } from './renderer/GameRenderer.js';
+import { UnitSprites } from './renderer/UnitSprites.js';
 import { Minimap } from './renderer/Minimap.js';
 import { Status } from './renderer/Status.js';
 import { InputHandler } from './utils/InputHandler.js';
-import { MapScenario } from './types/game.js';
+import { MusicPlayer } from './utils/MusicPlayer.js';
+import { MapScenario, UnitType } from './types/game.js';
 
 class CivWinApp {
   private game: Game;
@@ -14,12 +16,13 @@ class CivWinApp {
   private minimap: Minimap;
   private status: Status;
   private inputHandler: InputHandler;
+  private musicPlayer: MusicPlayer;
   private canvas: HTMLCanvasElement;
   private minimapCanvas: HTMLCanvasElement;
   private currentScenario: MapScenario = 'random';
 
   constructor() {
-    // Get canvas elements
+    /** Get canvas elements */
     this.canvas = document.querySelector<HTMLCanvasElement>('#game-canvas')!;
     if (!this.canvas) {
       throw new Error('Canvas element not found');
@@ -30,12 +33,13 @@ class CivWinApp {
       throw new Error('Minimap canvas element not found');
     }
 
-    // Initialize game systems
+    /** Initialize game systems */
     this.game = new Game();
     this.renderer = new Renderer(this.canvas);
     this.gameRenderer = new GameRenderer(this.renderer);
     this.minimap = new Minimap(this.minimapCanvas, this.renderer, () => this.requestRender());
     this.status = new Status();
+    this.musicPlayer = new MusicPlayer();
     this.inputHandler = new InputHandler(
       this.game, 
       this.gameRenderer, 
@@ -46,27 +50,35 @@ class CivWinApp {
       this.status
     );
 
-    // Setup game event listeners BEFORE initializing the game
+    /** Setup game event listeners BEFORE initializing the game */
     this.setupGameEventListeners();
 
-    // Setup UI event listeners
+    /** Setup UI event listeners */
     this.setupUIEventListeners();
 
-    // Initialize the game (this will emit events)
+    /** Initialize the game (this will emit events) */
     this.initializeGame();
 
-    // Handle canvas resizing
+    /** Handle canvas resizing */
     this.handleResize();
     window.addEventListener('resize', this.handleResize.bind(this));
 
-    // Make input handler accessible for debugging
+    /** Make input handler accessible for debugging */
     (window as any).inputHandler = this.inputHandler;
+    (window as any).musicPlayer = this.musicPlayer;
 
-    // Trigger initial render
+    /** Trigger initial render */
     this.requestRender();
+
+    /** Auto-start music player after a short delay */
+    setTimeout(() => {
+      this.musicPlayer.autoStart();
+    }, 2000);
   }
 
-  // Initialize the game with default players and current scenario
+  /**
+   * Initialize the game with default players and current scenario
+   */
   private initializeGame(): void {
     console.log(`Initializing game with ${this.currentScenario} scenario`);
     const playerNames = ['Player', 'AI Player 1', 'AI Player 2'];
@@ -74,18 +86,23 @@ class CivWinApp {
     console.log('Game initialization completed');
   }
 
-  // Setup game event listeners
+  /**
+   * Setup game event listeners
+   */
   private setupGameEventListeners(): void {
     console.log('Setting up game event listeners');
     this.game.on('gameInitialized', (gameState: any) => {
       console.log('Game initialized event received', gameState);
       this.updateUI();
       this.requestRender();
+      
+      /** Preload unit sprites for all players */
+      this.preloadUnitSprites(gameState);
     });
 
     this.game.on('turnEnded', (gameState: any) => {
       console.log('Turn ended', gameState);
-      // Clear end of turn state when new turn begins
+      /** Clear end of turn state when new turn begins */
       this.status.setEndOfTurnState(false);
       this.updateUI();
       this.requestRender();
@@ -102,7 +119,6 @@ class CivWinApp {
       this.requestRender();
     });
 
-    // Unit queue events
     this.game.on('unitSelected', (data: any) => {
       console.log('Unit selected from queue', data);
       this.handleUnitSelected(data);
@@ -129,12 +145,12 @@ class CivWinApp {
     });
   }
 
-  // Setup UI event listeners
+  /**
+   * Setup UI event listeners
+   */
   private setupUIEventListeners(): void {
-    // Menu bar functionality
     this.setupMenuBar();
 
-    // End turn button
     const endTurnBtn = document.querySelector<HTMLButtonElement>('#end-turn-btn');
     if (endTurnBtn) {
       endTurnBtn.addEventListener('click', () => {
@@ -143,7 +159,6 @@ class CivWinApp {
       });
     }
 
-    // Pause button
     const pauseBtn = document.querySelector<HTMLButtonElement>('#pause-btn');
     if (pauseBtn) {
       pauseBtn.addEventListener('click', () => {
@@ -153,25 +168,23 @@ class CivWinApp {
     }
   }
 
-  // Setup menu bar functionality
+  /**
+   * Setup menu bar functionality
+   */
   private setupMenuBar(): void {
-    // Handle menu hover and click states
     const menuItems = document.querySelectorAll('.menu-item');
     
     menuItems.forEach(menuItem => {
       const menuLabel = menuItem.querySelector('.menu-label');
       
       if (menuLabel) {
-        // Show dropdown on hover
         menuItem.addEventListener('mouseenter', () => {
-          // Close other open menus
           menuItems.forEach(item => item.classList.remove('active'));
           menuItem.classList.add('active');
         });
       }
     });
 
-    // Close menus when clicking outside
     document.addEventListener('click', (e) => {
       const target = e.target as HTMLElement;
       if (!target.closest('#menu-bar')) {
@@ -179,7 +192,6 @@ class CivWinApp {
       }
     });
 
-    // Handle menu item clicks
     this.setupMenuActions();
   }
 
@@ -383,6 +395,24 @@ class CivWinApp {
     });
   }
 
+  // Preload unit sprites for better performance
+  private async preloadUnitSprites(gameState: any): Promise<void> {
+    try {
+      // Extract player colors from game state
+      const playerColors = gameState.players.map((player: any) => player.color);
+      
+      // Define unit types that have custom sprites
+      const unitTypesWithSprites = [UnitType.SETTLER];
+      
+      // Preload sprites for all player colors and unit types
+      await UnitSprites.preloadSprites(unitTypesWithSprites, playerColors, 48);
+      
+      console.log('Unit sprites preloaded successfully');
+    } catch (error) {
+      console.warn('Failed to preload unit sprites:', error);
+    }
+  }
+
   // Update UI elements
   private updateUI(): void {
     const gameState = this.game.getGameState();
@@ -466,17 +496,16 @@ class CivWinApp {
     requestAnimationFrame(() => this.render());
   }
 
-  // Start the game (render initial state)
   public start(): void {
     this.requestRender();
   }
 
   // Render the game (only when needed)
   private render(): void {
-    console.log('Render called');
+    console.debug('Render called');
 
     const gameState = this.game.getGameState();
-    console.log('Rendering game state:', {
+    console.debug('Rendering game state:', {
       worldMapSize: `${gameState.worldMap.length}x${gameState.worldMap[0]?.length || 0}`,
       turn: gameState.turn,
       canvasSize: `${this.canvas.width}x${this.canvas.height}`
@@ -487,7 +516,6 @@ class CivWinApp {
   }
 }
 
-// Initialize and start the application
 document.addEventListener('DOMContentLoaded', () => {
   const app = new CivWinApp();
   app.start();

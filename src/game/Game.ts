@@ -1,4 +1,4 @@
-import { GamePhase, GameState, Player, Position, Unit, City, GovernmentType, GOVERNMENTS, GovernmentEffects, MapScenario, UnitType, TechnologyType } from '../types/game';
+import { GamePhase, GameState, Player, Position, Unit, City, GovernmentType, GOVERNMENTS, GovernmentEffects, MapScenario, UnitType, TechnologyType, UnitCategory, TerrainType } from '../types/game';
 import { MapGenerator } from './MapGenerator';
 import { TurnManager } from './TurnManager';
 import { createUnit } from './Units';
@@ -63,7 +63,7 @@ export class Game {
 
   // Create players with default settings
   private createPlayers(playerNames: string[]): Player[] {
-    const colors = ['#FF0000', '#0000FF', '#00FF00', '#FFFF00', '#FF00FF', '#00FFFF'];
+    const colors = ['#FFFF00', '#0000FF', '#00FF00', '#FFFFFF', '#FF00FF', '#00FF00', '#000000'];
     
     return playerNames.map((name, index) => ({
       id: `player-${index}`,
@@ -94,12 +94,10 @@ export class Game {
         startPosition,
         player.id
       );
-
-      // Create warrior using the new unit factory
       const warrior = createUnit(
         `warrior-${player.id}`,
         UnitType.WARRIOR,
-        { x: startPosition.x + 1, y: startPosition.y },
+        startPosition,
         player.id
       );
 
@@ -138,9 +136,32 @@ export class Game {
       }
     }
     
-    // Fallback: return initial position even if not ideal
-    console.warn(`Could not find suitable starting position for player ${playerIndex}, using fallback`);
-    return { x: initialX, y: initialY };
+    // Fallback: search entire map for any valid position
+    console.warn(`Could not find suitable starting position for player ${playerIndex}, searching entire map`);
+    for (let y = 0; y < mapHeight; y++) {
+      for (let x = 0; x < mapWidth; x++) {
+        if (this.isValidStartingPosition(x, y, mapWidth, mapHeight)) {
+          console.warn(`Using fallback position for player ${playerIndex}: (${x}, ${y})`);
+          return { x, y };
+        }
+      }
+    }
+    
+    // Ultimate fallback: find any passable non-ocean terrain (even if can't found city)
+    console.error(`No valid starting positions found for player ${playerIndex}, using emergency fallback`);
+    for (let y = 0; y < mapHeight; y++) {
+      for (let x = 0; x < mapWidth; x++) {
+        const terrainType = this.gameState.worldMap[y][x].terrain;
+        if (terrainType !== TerrainType.OCEAN && TerrainManager.isPassable(terrainType)) {
+          console.error(`Using emergency position for player ${playerIndex}: (${x}, ${y}) on ${terrainType}`);
+          return { x, y };
+        }
+      }
+    }
+    
+    // This should never happen unless the entire map is ocean
+    console.error(`CRITICAL: No land found on map for player ${playerIndex}, using center position`);
+    return { x: Math.floor(mapWidth / 2), y: Math.floor(mapHeight / 2) };
   }
   
   // Check if a position is valid for starting (passable terrain that allows city founding)
@@ -152,6 +173,11 @@ export class Game {
     
     // Get terrain at this position
     const terrainType = this.gameState.worldMap[y][x].terrain;
+    
+    // Explicitly exclude ocean terrain (cannot spawn units on water)
+    if (terrainType === TerrainType.OCEAN) {
+      return false;
+    }
     
     // Check if terrain is passable and allows city founding
     return TerrainManager.isPassable(terrainType) && TerrainManager.canFoundCity(terrainType);
@@ -305,24 +331,62 @@ export class Game {
     }
   }
 
+  // Audio utility for playing game sounds
+  private playSound(soundPath: string): void {
+    try {
+      const audio = new Audio(soundPath);
+      audio.volume = 0.5; // Set volume to 50%
+      audio.play().catch(error => {
+        console.warn('Failed to play sound:', soundPath, error);
+      });
+    } catch (error) {
+      console.warn('Failed to create audio for:', soundPath, error);
+    }
+  }
+
   // Move a unit
   public moveUnit(unitId: string, newPosition: Position): boolean {
     const unit = this.gameState.units.find((u: Unit) => u.id === unitId);
-    if (!unit || unit.movementPoints <= 0) return false;
+    if (!unit || unit.movementPoints <= 0) {
+      this.playSound('src/audio/NEG1.WAV');
+      return false;
+    }
 
     // Normalize position with horizontal wrapping
     const normalizedPosition = this.normalizePosition(newPosition);
 
-    // Validate move (simplified - would need path finding)
-    const distance = this.calculateWrappedDistance(unit.position, normalizedPosition);
-    if (distance > unit.movementPoints) return false;
-
     // Check if target tile is valid
-    if (!this.isValidPosition(normalizedPosition)) return false;
+    if (!this.isValidPosition(normalizedPosition)) {
+      this.playSound('src/audio/NEG1.WAV');
+      return false;
+    }
+
+    // Check terrain-based movement restrictions
+    if (!this.canUnitMoveToTerrain(unit, normalizedPosition)) {
+      this.playSound('src/audio/NEG1.WAV');
+      return false;
+    }
+
+    // Calculate actual movement cost including terrain
+    const movementCost = this.calculateMovementCost(unit.position, normalizedPosition);
+    
+    // Classic Civ rule: A unit can always move into a terrain square even if the movement cost 
+    // exceeds remaining movement points. In that case, it drains all remaining movement to 0.
+    // However, unit must have at least some movement points to move
+    if (unit.movementPoints <= 0) {
+      this.playSound('src/audio/NEG1.WAV');
+      return false;
+    }
 
     // Move unit
     unit.position = normalizedPosition;
-    unit.movementPoints -= distance;
+    
+    // If movement cost exceeds remaining points, drain all remaining movement
+    if (movementCost > unit.movementPoints) {
+      unit.movementPoints = 0;
+    } else {
+      unit.movementPoints -= movementCost;
+    }
 
     // If unit can no longer move, remove from queue
     if (unit.movementPoints <= 0) {
@@ -331,6 +395,80 @@ export class Game {
 
     this.emit('unitMoved', { unit, newPosition: normalizedPosition });
     return true;
+  }
+
+  // Calculate movement cost including terrain
+  private calculateMovementCost(fromPosition: Position, toPosition: Position): number {
+    // For now, this is a simplified implementation for adjacent moves only
+    const distance = this.calculateWrappedDistance(fromPosition, toPosition);
+    if (distance !== 1) {
+      // For non-adjacent moves, use distance (this would need pathfinding for proper implementation)
+      return distance;
+    }
+
+    // Get terrain movement cost for the destination tile
+    const tile = this.gameState.worldMap[toPosition.y]?.[toPosition.x];
+    if (!tile) return 999; // Invalid tile
+
+    return TerrainManager.getMovementCost(tile.terrain);
+  }
+
+  // Check if unit can move to a specific terrain type
+  private canUnitMoveToTerrain(unit: Unit, position: Position): boolean {
+    const tile = this.gameState.worldMap[position.y]?.[position.x];
+    if (!tile) return false;
+
+    // Get unit stats to determine category
+    const unitStats = getUnitStats(unit.type);
+    const targetTerrain = tile.terrain;
+
+    // Naval units can move freely in ocean
+    if (unitStats.category === UnitCategory.NAVAL) {
+      return true;
+    }
+
+    // Air units can move over any terrain
+    if (unitStats.category === UnitCategory.AIR) {
+      return true;
+    }
+
+    // Check if target is ocean
+    if (targetTerrain === TerrainType.OCEAN) {
+      // Non-naval units cannot move to ocean unless there's a transport ship
+      return this.hasAvailableTransport(position, unit);
+    }
+
+    // For other terrain types, use TerrainManager
+    return TerrainManager.isPassable(targetTerrain);
+  }
+
+  // Check if there's an available transport ship at the given position
+  private hasAvailableTransport(position: Position, unitToTransport: Unit): boolean {
+    // Find naval units at the target position
+    const navalUnitsAtPosition = this.gameState.units.filter(u => 
+      u.position.x === position.x && 
+      u.position.y === position.y &&
+      u.playerId === unitToTransport.playerId && // Same player
+      getUnitStats(u.type).category === UnitCategory.NAVAL &&
+      getUnitStats(u.type).canCarryUnits && // Has transport capacity
+      getUnitStats(u.type).canCarryUnits! > 0
+    );
+
+    // Check if any naval unit has available capacity
+    for (const navalUnit of navalUnitsAtPosition) {
+      const stats = getUnitStats(navalUnit.type);
+      const maxCapacity = stats.canCarryUnits || 0;
+      
+      // Count currently carried units (we'd need to track this in the naval unit)
+      // For now, assume naval units are available if they have transport capacity
+      const currentlyCarried = 0; // TODO: Implement proper tracking of carried units
+      
+      if (currentlyCarried < maxCapacity) {
+        return true;
+      }
+    }
+
+    return false;
   }
 
   // Normalize position coordinates with horizontal wrapping

@@ -9,7 +9,7 @@ export class JungleTerrain extends TerrainBase {
   constructor() {
     super(TerrainType.JUNGLE, {
       name: 'Jungle',
-      movementCost: 3,
+      movementCost: 1,
       passable: true,
       color: '#14532d',
       possibleResources: [ResourceType.GOLD],

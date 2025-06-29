@@ -10,7 +10,7 @@ export class ForestTerrain extends TerrainBase {
   constructor() {
     super(TerrainType.FOREST, {
       name: 'Forest',
-      movementCost: 2,
+      movementCost: 1,
       passable: true,
       color: '#15803d',
       possibleResources: [],

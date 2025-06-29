@@ -10,14 +10,14 @@ export class MountainsTerrain extends TerrainBase {
   constructor() {
     super(TerrainType.MOUNTAINS, {
       name: 'Mountains',
-      movementCost: 999, // Effectively impassable
-      passable: false,
+      movementCost: 3, // High movement cost but passable
+      passable: true,
       color: '#8b7355',
       possibleResources: [ResourceType.GOLD, ResourceType.IRON],
       foodYield: 0,
       productionYield: 3,
       tradeYield: 0,
-      canFoundCity: false,
+      canFoundCity: false, // Cities cannot be founded on mountains
       useConnections: true
     });
   }

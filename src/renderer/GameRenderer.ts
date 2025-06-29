@@ -1,6 +1,7 @@
 import { GameState, Tile, Unit, City, TerrainType, UnitType, UnitCategory } from '../types/game';
 import { Renderer } from './Renderer';
 import { TerrainManager } from '../terrain/index';
+import { UnitSprites } from './UnitSprites';
 import { ConnectionMask, ConnectionPattern } from '../types/terrain';
 import { getUnitStats } from '../game/UnitDefinitions';
 
@@ -34,7 +35,7 @@ export class GameRenderer {
     this.renderCities(gameState.cities);
     
     // Render units
-    this.renderUnits(gameState.units);
+    this.renderUnits(gameState.units, gameState);
     
     // Render grid overlay
     this.renderGrid();
@@ -189,12 +190,104 @@ export class GameRenderer {
   }
 
   // Render all units
-  private renderUnits(units: Unit[]): void {
-    units.forEach(unit => this.renderUnit(unit));
+  private renderUnits(units: Unit[], gameState: GameState): void {
+    // Group units by position to handle multiple units on the same tile
+    const unitsByPosition = new Map<string, Unit[]>();
+    
+    units.forEach(unit => {
+      const posKey = `${unit.position.x},${unit.position.y}`;
+      if (!unitsByPosition.has(posKey)) {
+        unitsByPosition.set(posKey, []);
+      }
+      unitsByPosition.get(posKey)!.push(unit);
+    });
+    
+    // Render each group of units
+    unitsByPosition.forEach(unitsAtPosition => {
+      this.renderUnitsAtPosition(unitsAtPosition, gameState);
+    });
+  }
+
+  // Render multiple units at the same position
+  private renderUnitsAtPosition(units: Unit[], gameState: GameState): void {
+    if (units.length === 0) return;
+    
+    const firstUnit = units[0];
+    const screenPos = this.renderer.worldToScreen(firstUnit.position.x, firstUnit.position.y);
+    const renderContext = this.renderer.getRenderContext();
+    const tileSize = renderContext.tileSize;
+    
+    if (units.length === 1) {
+      // Single unit - render normally
+      this.renderUnit(units[0], gameState);
+      return;
+    }
+    
+    // Multiple units - find the selected unit and render it prominently
+    const selectedUnit = units.find(unit => this.selectedUnit && this.selectedUnit.id === unit.id);
+    const otherUnits = units.filter(unit => !selectedUnit || unit.id !== selectedUnit.id);
+    
+    // Render background units in a stacked pattern (slightly offset and dimmed)
+    otherUnits.forEach((unit, index) => {
+      const offset = (index + 1) * 3; // Small offset for stacking effect
+      const adjustedScreenPos = {
+        x: screenPos.x + offset,
+        y: screenPos.y + offset
+      };
+      
+      // Check if unit should be rendered (for blinking effect)
+      if (this.shouldRenderUnit(unit)) {
+        this.renderUnitWithAlpha(unit, adjustedScreenPos, tileSize, 0.6, gameState); // Dimmed
+      }
+    });
+    
+    // Render selected unit on top with full opacity and highlight
+    if (selectedUnit && this.shouldRenderUnit(selectedUnit)) {
+      this.renderUnitWithAlpha(selectedUnit, screenPos, tileSize, 1.0, gameState); // Full opacity
+      
+      // Add prominent selection indicator for the active unit
+      this.renderer.strokeRect(
+        screenPos.x - 2, 
+        screenPos.y - 2, 
+        tileSize + 4, 
+        tileSize + 4, 
+        '#FFEB3B', 
+        4
+      );
+      
+      // Add a secondary highlight to make it more visible
+      this.renderer.strokeRect(
+        screenPos.x + 1, 
+        screenPos.y + 1, 
+        tileSize - 2, 
+        tileSize - 2, 
+        '#FFF59D', 
+        2
+      );
+    }
+    
+    // Show unit count indicator when there are multiple units
+    if (units.length > 1) {
+      const countBgX = screenPos.x + tileSize - 18;
+      const countBgY = screenPos.y + tileSize - 18;
+      
+      // Background circle for count
+      this.renderer.fillCircle(countBgX + 9, countBgY + 9, 8, 'rgba(0, 0, 0, 0.7)');
+      
+      // Count text
+      this.renderer.fillText(
+        units.length.toString(),
+        countBgX + 9,
+        countBgY + 11,
+        '#FFFFFF',
+        '10px Arial',
+        'center'
+      );
+    }
   }
 
   // Render a single unit
-  private renderUnit(unit: Unit): void {
+  private renderUnit(unit: Unit, gameState: GameState): void {
     // Check if unit should be rendered (for blinking effect)
     if (!this.shouldRenderUnit(unit)) {
       return;
@@ -204,28 +297,10 @@ export class GameRenderer {
     const renderContext = this.renderer.getRenderContext();
     const tileSize = renderContext.tileSize;
     
-    // Get unit stats to determine category and rendering
-    const stats = getUnitStats(unit.type);
-    const unitColor = this.getUnitColor(unit.type, stats.category);
-    const unitSymbol = this.getUnitSymbol(unit.type);
+    // Use the alpha rendering method with full opacity
+    this.renderUnitWithAlpha(unit, screenPos, tileSize, 1.0, gameState);
     
-    // Unit body - different shapes for different categories
-    this.renderUnitBody(screenPos, tileSize, stats.category, unitColor);
-    
-    // Unit symbol/text
-    this.renderUnitSymbol(screenPos, tileSize, unitSymbol);
-    
-    // Veteran indicator
-    if (unit.isVeteran) {
-      this.renderVeteranIndicator(screenPos, tileSize);
-    }
-    
-    // Fortification indicator
-    if (unit.fortified) {
-      this.renderFortificationIndicator(screenPos, tileSize);
-    }
-    
-    // Selection indicator
+    // Selection indicator for single unit (when not part of a multi-unit stack)
     if (this.selectedUnit && this.selectedUnit.id === unit.id) {
       this.renderer.strokeRect(
         screenPos.x, 
@@ -236,20 +311,6 @@ export class GameRenderer {
         3
       );
     }
-    
-    // Health bar
-    if (unit.health < unit.maxHealth) {
-      this.renderHealthBar(screenPos, tileSize, unit.health, unit.maxHealth);
-    }
-    
-    // Movement points indicator
-    this.renderer.fillText(
-      unit.movementPoints.toString(),
-      screenPos.x + 2,
-      screenPos.y + 14,
-      '#FFFFFF',
-      '12px Arial'
-    );
   }
 
   // Get color for unit type
@@ -525,5 +586,82 @@ export class GameRenderer {
     }
     // Always render non-selected units
     return true;
+  }
+
+  // Render unit with alpha (transparency)
+  private renderUnitWithAlpha(unit: Unit, screenPos: {x: number, y: number}, tileSize: number, alpha: number, gameState: GameState): void {
+    const ctx = this.renderer.getContext();
+    const originalAlpha = ctx.globalAlpha;
+    
+    // Set alpha for this unit
+    ctx.globalAlpha = alpha;
+    
+    // Try to use custom sprite first if available (synchronous check)
+    if (UnitSprites.hasCustomSprite(unit.type)) {
+      // Get player color
+      const player = gameState.players.find(p => p.id === unit.playerId);
+      const playerColor = player?.color || '#FFFFFF';
+      
+      // Try to get cached sprite synchronously
+      const sprite = UnitSprites.getCachedSprite(unit.type, playerColor, tileSize);
+      if (sprite) {
+        // Draw the sprite
+        ctx.drawImage(sprite, screenPos.x, screenPos.y, tileSize, tileSize);
+        
+        // Add overlays for unit status
+        this.renderUnitOverlays(unit, screenPos, tileSize);
+        
+        // Restore alpha and return
+        ctx.globalAlpha = originalAlpha;
+        return;
+      }
+      
+      // If sprite not cached, load it asynchronously for next frame
+      UnitSprites.loadSpriteAsync(unit.type, playerColor, tileSize);
+    }
+    
+    // Fallback to geometric rendering for units without sprites or while loading
+    const stats = getUnitStats(unit.type);
+    const unitColor = this.getUnitColor(unit.type, stats.category);
+    const unitSymbol = this.getUnitSymbol(unit.type);
+    
+    // Unit body - different shapes for different categories
+    this.renderUnitBody(screenPos, tileSize, stats.category, unitColor);
+    
+    // Unit symbol/text
+    this.renderUnitSymbol(screenPos, tileSize, unitSymbol);
+    
+    // Render overlays
+    this.renderUnitOverlays(unit, screenPos, tileSize);
+    
+    // Restore original alpha
+    ctx.globalAlpha = originalAlpha;
+  }
+
+  // Render unit status overlays (veteran, fortification, health, movement)
+  private renderUnitOverlays(unit: Unit, screenPos: {x: number, y: number}, tileSize: number): void {
+    // Veteran indicator
+    if (unit.isVeteran) {
+      this.renderVeteranIndicator(screenPos, tileSize);
+    }
+    
+    // Fortification indicator
+    if (unit.fortified) {
+      this.renderFortificationIndicator(screenPos, tileSize);
+    }
+    
+    // Health bar
+    if (unit.health < unit.maxHealth) {
+      this.renderHealthBar(screenPos, tileSize, unit.health, unit.maxHealth);
+    }
+    
+    // Movement points indicator
+    this.renderer.fillText(
+      unit.movementPoints.toString(),
+      screenPos.x + 2,
+      screenPos.y + 14,
+      '#FFFFFF',
+      '12px Arial'
+    );
   }
 }

@@ -10,14 +10,14 @@ export class RiverTerrain extends TerrainBase {
   constructor() {
     super(TerrainType.RIVER, {
       name: 'River',
-      movementCost: 999, // Impassable for land units (unless bridged)
-      passable: false,
+      movementCost: 1, // Normal movement cost for land units
+      passable: true,
       color: '#0ea5e9',
       possibleResources: [ResourceType.FISH],
       foodYield: 2,
       productionYield: 0,
       tradeYield: 1,
-      canFoundCity: false,
+      canFoundCity: true, // Rivers are excellent for founding cities
       useConnections: true
     });
   }

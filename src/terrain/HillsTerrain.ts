@@ -10,7 +10,7 @@ export class HillsTerrain extends TerrainBase {
   constructor() {
     super(TerrainType.HILLS, {
       name: 'Hills',
-      movementCost: 2,
+      movementCost: 1,
       passable: true,
       color: '#84cc16',
       possibleResources: [ResourceType.IRON, ResourceType.HORSES],

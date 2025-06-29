@@ -191,6 +191,98 @@ body {
   border: 1px solid rgba(52, 152, 219, 0.4);
 }
 
+/* Music Player Styles */
+#music-player {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-left: auto;
+  padding: 2px 8px;
+  background: #f8f8f8;
+  border: 1px inset #c0c0c0;
+  border-radius: 2px;
+  font-size: 10px;
+}
+
+#music-controls {
+  display: flex;
+  gap: 2px;
+  align-items: center;
+}
+
+#music-controls button {
+  background: #e0e0e0;
+  border: 1px outset #c0c0c0;
+  padding: 2px 4px;
+  font-size: 10px;
+  cursor: pointer;
+  min-width: 20px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: inherit;
+}
+
+#music-controls button:hover {
+  background: #f0f0f0;
+}
+
+#music-controls button:active {
+  border: 1px inset #c0c0c0;
+}
+
+#music-controls button.active {
+  background: #d0d0ff;
+  border: 1px inset #8080ff;
+}
+
+#music-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 150px;
+}
+
+#current-track {
+  font-weight: bold;
+  color: #000;
+  font-size: 9px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 150px;
+}
+
+#progress-container {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+#progress-bar {
+  flex: 1;
+  height: 4px;
+  background: #c0c0c0;
+  border: 1px inset #808080;
+  cursor: pointer;
+  position: relative;
+}
+
+#progress-fill {
+  height: 100%;
+  background: linear-gradient(to right, #4CAF50, #45a049);
+  width: 0%;
+  transition: width 0.1s ease;
+}
+
+#time-display {
+  font-size: 8px;
+  color: #666;
+  font-family: monospace;
+  white-space: nowrap;
+}
+
 #game-canvas {
   flex: 1;
   background: #2c3e50;
