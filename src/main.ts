@@ -85,6 +85,8 @@ class CivWinApp {
 
     this.game.on('turnEnded', (gameState: any) => {
       console.log('Turn ended', gameState);
+      // Clear end of turn state when new turn begins
+      this.status.setEndOfTurnState(false);
       this.updateUI();
       this.requestRender();
     });
@@ -98,6 +100,26 @@ class CivWinApp {
       console.log('City founded', city);
       this.updateUI();
       this.requestRender();
+    });
+
+    // Unit queue events
+    this.game.on('unitSelected', (data: any) => {
+      console.log('Unit selected from queue', data);
+      this.handleUnitSelected(data);
+    });
+
+    this.game.on('unitDeselected', () => {
+      console.log('Unit deselected');
+      this.handleUnitDeselected();
+    });
+
+    this.game.on('unitBlink', () => {
+      this.handleUnitBlink();
+    });
+
+    this.game.on('endOfTurn', () => {
+      console.log('End of turn - no more units to move');
+      this.handleEndOfTurn();
     });
 
     this.game.on('gamePhaseChanged', (phase: any) => {
@@ -395,17 +417,47 @@ class CivWinApp {
 
   // Handle canvas resizing
   private handleResize(): void {
-    const container = this.canvas.parentElement;
-    if (container) {
-      const rect = container.getBoundingClientRect();
-      const newWidth = rect.width - 20;
-      const newHeight = rect.height - 100;
-      console.log(`handleResize: container=${rect.width}x${rect.height}, canvas will be ${newWidth}x${newHeight}`);
-      this.renderer.resize(newWidth, newHeight); // Account for UI elements
-      this.requestRender();
-    } else {
-      console.log('handleResize: no container found');
-    }
+    const rect = this.canvas.getBoundingClientRect();
+    this.renderer.resize(rect.width, rect.height);
+    this.requestRender();
+  }
+
+  // Handle unit selection from queue
+  private handleUnitSelected(data: { unit: any, unitIndex: number, totalUnits: number }): void {
+    const { unit } = data;
+    
+    // Select the unit in the game renderer
+    this.gameRenderer.selectUnit(unit);
+    
+    // Center camera on the unit
+    this.renderer.centerOn(unit.position.x, unit.position.y);
+    
+    // Update status window
+    this.status.setSelectedUnit(unit);
+    
+    // Re-render to show selection and camera position
+    this.requestRender();
+    
+    console.log(`Selected unit ${unit.id} at position (${unit.position.x}, ${unit.position.y})`);
+  }
+
+  // Handle unit deselection
+  private handleUnitDeselected(): void {
+    this.gameRenderer.clearSelections();
+    this.status.setSelectedUnit(null);
+    this.requestRender();
+  }
+
+  // Handle unit blinking effect
+  private handleUnitBlink(): void {
+    this.gameRenderer.toggleUnitBlink();
+    this.requestRender();
+  }
+
+  // Handle end of turn state
+  private handleEndOfTurn(): void {
+    this.status.setEndOfTurnState(true);
+    this.requestRender();
   }
 
   // Request a render on the next frame

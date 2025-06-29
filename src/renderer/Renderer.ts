@@ -149,6 +149,17 @@ export class Renderer {
     this.viewport.y = this.clampViewportY(this.viewport.y + deltaY);
   }
 
+  // Center viewport on specific world coordinates
+  public centerOn(worldX: number, worldY: number): void {
+    const tilesWidth = this.canvas.width / this.tileSize;
+    const tilesHeight = this.canvas.height / this.tileSize;
+    
+    const centerX = worldX - tilesWidth / 2;
+    const centerY = worldY - tilesHeight / 2;
+    
+    this.setViewport(centerX, centerY);
+  }
+
   public zoomViewport(): void {
     // Zoom disabled for now - do nothing
   }

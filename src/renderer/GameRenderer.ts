@@ -10,6 +10,7 @@ export class GameRenderer {
   private selectedUnit: Unit | null = null;
   private currentWorldMap: Tile[][] = []; // Cache the world map for connection analysis
   private readonly tileSize = 48; // Fixed tile size for terrain sprites
+  private blinkState: boolean = false; // Track blinking state for current unit
 
   constructor(renderer: Renderer) {
     this.renderer = renderer;
@@ -194,6 +195,11 @@ export class GameRenderer {
 
   // Render a single unit
   private renderUnit(unit: Unit): void {
+    // Check if unit should be rendered (for blinking effect)
+    if (!this.shouldRenderUnit(unit)) {
+      return;
+    }
+
     const screenPos = this.renderer.worldToScreen(unit.position.x, unit.position.y);
     const renderContext = this.renderer.getRenderContext();
     const tileSize = renderContext.tileSize;
@@ -504,5 +510,20 @@ export class GameRenderer {
   // Get selected unit
   public getSelectedUnit(): Unit | null {
     return this.selectedUnit;
+  }
+
+  // Toggle unit blinking effect
+  public toggleUnitBlink(): void {
+    this.blinkState = !this.blinkState;
+  }
+
+  // Check if unit should be rendered (for blinking effect)
+  private shouldRenderUnit(unit: Unit): boolean {
+    // If this is the selected unit and blinking is enabled, check blink state
+    if (this.selectedUnit && this.selectedUnit.id === unit.id) {
+      return this.blinkState;
+    }
+    // Always render non-selected units
+    return true;
   }
 }

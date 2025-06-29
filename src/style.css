@@ -713,7 +713,7 @@ button:disabled {
 
 .unit-field {
   display: flex;
-  justify-content: center;
+  justify-content: flex-start;
   align-items: center;
   font-size: 10px;
   line-height: 1.2;
@@ -754,6 +754,31 @@ button:disabled {
 
 .status-window.hidden {
   display: none;
+}
+
+/* End of Turn Styling */
+.end-of-turn-message {
+  color: #FFD700;
+  font-weight: bold;
+  font-size: 12px;
+  text-align: center;
+  animation: blinkYellowBlack 1s infinite;
+}
+
+.end-of-turn-message.blink-off {
+  color: #000000;
+}
+
+.end-of-turn-continue {
+  color: #FFD700;
+  font-weight: bold;
+  font-size: 10px;
+  text-align: center;
+}
+
+@keyframes blinkYellowBlack {
+  0%, 50% { color: #FFD700; }
+  51%, 100% { color: #000000; }
 }
 
 /* Responsive design */

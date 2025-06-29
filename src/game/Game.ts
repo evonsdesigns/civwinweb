@@ -12,6 +12,11 @@ export class Game {
   private turnManager: TurnManager;
   private combatSystem: CombatSystem;
   private eventListeners: Map<string, Function[]> = new Map();
+  
+  // Unit queue system
+  private unitQueue: Unit[] = [];
+  private currentUnitIndex: number = 0;
+  private blinkIntervalId: number | null = null;
 
   constructor() {
     this.mapGenerator = new MapGenerator();
@@ -45,6 +50,12 @@ export class Game {
 
     // Set game phase to playing
     this.gameState.gamePhase = GamePhase.PLAYING;
+
+    // Build initial unit queue and select first unit
+    this.buildUnitQueue();
+    if (this.unitQueue.length > 0) {
+      this.selectCurrentUnit();
+    }
 
     this.emit('gameInitialized', this.gameState);
   }
@@ -109,8 +120,148 @@ export class Game {
   public endTurn(): void {
     if (this.gameState.gamePhase !== GamePhase.PLAYING) return;
 
+    // Clear current unit selection and stop blinking
+    this.clearCurrentUnit();
+    
+    // Process the turn (restore movement points, handle cities, advance to next player)
     this.turnManager.processTurn(this.gameState);
+    
+    // Build queue for the new current player and select first unit
+    this.buildUnitQueue();
+    if (this.unitQueue.length > 0) {
+      this.selectCurrentUnit();
+    }
+    
     this.emit('turnEnded', this.gameState);
+  }
+
+  // Build queue of units that can move for current player
+  private buildUnitQueue(): void {
+    const currentPlayer = this.gameState.currentPlayer;
+    
+    // Get all units for current player that have movement points
+    this.unitQueue = this.gameState.units.filter(unit => 
+      unit.playerId === currentPlayer && unit.movementPoints > 0
+    );
+    
+    this.currentUnitIndex = 0;
+    
+    console.log(`Built unit queue for player ${currentPlayer}:`, this.unitQueue.length, 'units');
+  }
+
+  // Select next unit in queue
+  public selectNextUnit(): void {
+    if (this.unitQueue.length === 0) {
+      this.clearCurrentUnit();
+      return;
+    }
+
+    // Move to next unit
+    this.currentUnitIndex++;
+    if (this.currentUnitIndex >= this.unitQueue.length) {
+      this.currentUnitIndex = 0;
+    }
+
+    const currentUnit = this.unitQueue[this.currentUnitIndex];
+    this.setCurrentUnit(currentUnit);
+  }
+
+  // Select current unit (used when unit is removed from queue)
+  private selectCurrentUnit(): void {
+    if (this.unitQueue.length === 0) {
+      this.clearCurrentUnit();
+      return;
+    }
+
+    // Ensure index is within bounds
+    if (this.currentUnitIndex >= this.unitQueue.length) {
+      this.currentUnitIndex = 0;
+    }
+
+    const currentUnit = this.unitQueue[this.currentUnitIndex];
+    this.setCurrentUnit(currentUnit);
+  }
+
+  // Select previous unit in queue
+  public selectPreviousUnit(): void {
+    if (this.unitQueue.length === 0) {
+      this.clearCurrentUnit();
+      return;
+    }
+
+    this.currentUnitIndex--;
+    if (this.currentUnitIndex < 0) {
+      this.currentUnitIndex = this.unitQueue.length - 1;
+    }
+
+    const currentUnit = this.unitQueue[this.currentUnitIndex];
+    this.setCurrentUnit(currentUnit);
+  }
+
+  // Set the current unit and emit events
+  private setCurrentUnit(unit: Unit): void {
+    this.startUnitBlinking();
+    this.emit('unitSelected', {
+      unit: unit,
+      unitIndex: this.currentUnitIndex,
+      totalUnits: this.unitQueue.length
+    });
+  }
+
+  // Clear current unit selection
+  private clearCurrentUnit(): void {
+    this.stopUnitBlinking();
+    this.emit('unitDeselected');
+    
+    // Check if this means end of turn (no more units to move)
+    if (this.unitQueue.length === 0) {
+      this.emit('endOfTurn');
+    }
+  }
+
+  // Start blinking effect for current unit
+  private startUnitBlinking(): void {
+    this.stopUnitBlinking();
+    this.blinkIntervalId = window.setInterval(() => {
+      this.emit('unitBlink');
+    }, 1000); // Blink every second
+  }
+
+  // Stop blinking effect
+  private stopUnitBlinking(): void {
+    if (this.blinkIntervalId !== null) {
+      clearInterval(this.blinkIntervalId);
+      this.blinkIntervalId = null;
+    }
+  }
+
+  // Get current unit
+  public getCurrentUnit(): Unit | null {
+    if (this.unitQueue.length === 0 || this.currentUnitIndex >= this.unitQueue.length) {
+      return null;
+    }
+    return this.unitQueue[this.currentUnitIndex];
+  }
+
+  // Remove unit from queue when it can no longer move
+  public removeUnitFromQueue(unitId: string): void {
+    const unitIndex = this.unitQueue.findIndex(unit => unit.id === unitId);
+    if (unitIndex === -1) return;
+
+    this.unitQueue.splice(unitIndex, 1);
+    
+    // Adjust current index if necessary
+    if (this.currentUnitIndex >= unitIndex) {
+      this.currentUnitIndex = Math.max(0, this.currentUnitIndex - 1);
+    }
+
+    // If no units left in queue, clear selection
+    if (this.unitQueue.length === 0) {
+      this.clearCurrentUnit();
+    } else {
+      // Select the unit that's now at the current position (or wrap to start)
+      this.selectCurrentUnit();
+    }
   }
 
   // Move a unit
@@ -131,6 +282,11 @@ export class Game {
     // Move unit
     unit.position = normalizedPosition;
     unit.movementPoints -= distance;
+
+    // If unit can no longer move, remove from queue
+    if (unit.movementPoints <= 0) {
+      this.removeUnitFromQueue(unitId);
+    }
 
     this.emit('unitMoved', { unit, newPosition: normalizedPosition });
     return true;

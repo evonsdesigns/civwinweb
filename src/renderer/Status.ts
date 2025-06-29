@@ -9,6 +9,8 @@ export class Status {
   private gameState: GameState | null = null;
   private selectedUnit: Unit | null = null;
   private selectedCity: City | null = null;
+  private endOfTurnState = false;
+  private endOfTurnBlinkInterval: number | null = null;
 
   constructor() {
     // Get the status window
@@ -74,6 +76,65 @@ export class Status {
     this.selectedCity = city;
     this.selectedUnit = null; // Clear unit selection when city is selected
     this.updateDisplay();
+  }
+
+  public setEndOfTurnState(isEndOfTurn: boolean): void {
+    this.endOfTurnState = isEndOfTurn;
+    
+    if (isEndOfTurn) {
+      // Clear unit/city selections
+      this.selectedUnit = null;
+      this.selectedCity = null;
+      
+      // Start blinking effect for "End of Turn"
+      this.startEndOfTurnBlinking();
+    } else {
+      // Stop blinking effect
+      this.stopEndOfTurnBlinking();
+    }
+    
+    this.updateDisplay();
+  }
+
+  private startEndOfTurnBlinking(): void {
+    this.stopEndOfTurnBlinking();
+    this.endOfTurnBlinkInterval = window.setInterval(() => {
+      this.toggleEndOfTurnBlink();
+    }, 500); // Blink twice per second
+  }
+
+  private stopEndOfTurnBlinking(): void {
+    if (this.endOfTurnBlinkInterval !== null) {
+      clearInterval(this.endOfTurnBlinkInterval);
+      this.endOfTurnBlinkInterval = null;
+    }
+  }
+
+  private toggleEndOfTurnBlink(): void {
+    const endOfTurnElement = document.getElementById('end-of-turn-text');
+    if (endOfTurnElement) {
+      endOfTurnElement.classList.toggle('blink-off');
+    }
+  }
+
+  private showEndOfTurnMessage(): void {
+    // Clear all unit detail fields and show end of turn message
+    const civilizationElement = document.getElementById('unit-civilization');
+    const unitNameElement = document.getElementById('unit-name');
+    const unitMovesElement = document.getElementById('unit-moves');
+    const unitHomeElement = document.getElementById('unit-home');
+    const unitTerrainElement = document.getElementById('unit-terrain');
+    const unitSpecialElement = document.getElementById('unit-special');
+    const unitFortificationElement = document.getElementById('unit-fortification');
+
+    // Clear standard fields
+    if (civilizationElement) civilizationElement.textContent = '';
+    if (unitNameElement) unitNameElement.innerHTML = '<span id="end-of-turn-text" class="end-of-turn-message">End of Turn</span>';
+    if (unitMovesElement) unitMovesElement.innerHTML = '<span class="end-of-turn-continue">Press Return to continue.</span>';
+    if (unitHomeElement) unitHomeElement.textContent = '';
+    if (unitTerrainElement) unitTerrainElement.textContent = '';
+    if (unitSpecialElement) unitSpecialElement.textContent = '';
+    if (unitFortificationElement) unitFortificationElement.textContent = '';
   }
 
   private updateDisplay(): void {
@@ -159,6 +220,12 @@ export class Status {
     const unitSpecialElement = document.getElementById('unit-special');
     const unitFortificationElement = document.getElementById('unit-fortification');
 
+    // Check if in end of turn state
+    if (this.endOfTurnState) {
+      this.showEndOfTurnMessage();
+      return;
+    }
+
     if (this.selectedCity) {
       // Viewing a city - clear unit details
       this.clearUnitDetails();
@@ -177,7 +244,7 @@ export class Status {
       }
 
       if (unitMovesElement) {
-        unitMovesElement.textContent = this.selectedUnit.movementPoints.toString();
+        unitMovesElement.textContent = `Moves: ${this.selectedUnit.movementPoints}`;
       }
 
       if (unitHomeElement) {

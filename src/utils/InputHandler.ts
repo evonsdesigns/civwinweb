@@ -265,35 +265,94 @@ export class InputHandler {
         
       case 'ArrowUp':
         event.preventDefault();
-        this.renderer.moveViewport(0, -1);
-        this.requestRender();
+        this.handleUnitMovement(0, -1);
         break;
         
       case 'ArrowDown':
         event.preventDefault();
-        this.renderer.moveViewport(0, 1);
-        this.requestRender();
+        this.handleUnitMovement(0, 1);
         break;
         
       case 'ArrowLeft':
         event.preventDefault();
-        this.renderer.moveViewport(-1, 0);
-        this.requestRender();
+        this.handleUnitMovement(-1, 0);
         break;
         
       case 'ArrowRight':
         event.preventDefault();
-        this.renderer.moveViewport(1, 0);
-        this.requestRender();
+        this.handleUnitMovement(1, 0);
         break;
         
+      case 'Tab':
+        event.preventDefault();
+        if (event.shiftKey) {
+          // Shift+Tab: Previous unit in queue
+          this.game.selectPreviousUnit();
+        } else {
+          // Tab: Next unit in queue
+          this.game.selectNextUnit();
+        }
+        break;
+        
+      case 'w':
+      case 'W':
+        // Wait command - skip current unit
+        this.game.selectNextUnit();
+        break;
+        
+      case ' ':
+        // Space bar - no movement for current unit
+        const currentUnit = this.game.getCurrentUnit();
+        if (currentUnit) {
+          // Remove unit from queue (exhausts movement for turn)
+          this.game.removeUnitFromQueue(currentUnit.id);
+        }
+        break;
+
+      // Numeric keypad movement (8 directions)
+      case '1':
+        event.preventDefault();
+        this.handleUnitMovement(-1, 1); // Southwest
+        break;
+      case '2':
+        event.preventDefault();
+        this.handleUnitMovement(0, 1); // South
+        break;
+      case '3':
+        event.preventDefault();
+        this.handleUnitMovement(1, 1); // Southeast
+        break;
+      case '4':
+        event.preventDefault();
+        this.handleUnitMovement(-1, 0); // West
+        break;
+      case '6':
+        event.preventDefault();
+        this.handleUnitMovement(1, 0); // East
+        break;
+      case '7':
+        event.preventDefault();
+        this.handleUnitMovement(-1, -1); // Northwest
+        break;
+      case '8':
+        event.preventDefault();
+        this.handleUnitMovement(0, -1); // North
+        break;
+      case '9':
+        event.preventDefault();
+        this.handleUnitMovement(1, -1); // Northeast
+        break;
+
+      case 'Enter':
+        event.preventDefault();
+        // End turn when Enter is pressed
+        this.game.endTurn();
+        break;
+
+      // Zoom disabled - do nothing
       case '+':
       case '=':
-        // Zoom disabled - do nothing
-        break;
-        
       case '-':
-        // Zoom disabled - do nothing
         break;
     }
   }
@@ -327,6 +386,51 @@ export class InputHandler {
   // Get current mouse world position
   public getMouseWorldPosition(): { x: number, y: number } | null {
     return this.renderer.screenToWorld(this.lastMousePos.x, this.lastMousePos.y);
+  }
+
+  // Handle unit movement with arrow keys
+  private handleUnitMovement(deltaX: number, deltaY: number): void {
+    // Get the currently selected unit from the game's unit queue system
+    const currentUnit = this.game.getCurrentUnit();
+    
+    if (!currentUnit) {
+      // No unit selected, fall back to moving the camera
+      this.renderer.moveViewport(deltaX, deltaY);
+      this.requestRender();
+      return;
+    }
+
+    // Check if unit belongs to current player
+    const gameState = this.game.getGameState();
+    if (currentUnit.playerId !== gameState.currentPlayer) {
+      // Can't move units that don't belong to current player
+      return;
+    }
+
+    // Check if unit has movement points
+    if (currentUnit.movementPoints <= 0) {
+      // Unit can't move, skip to next unit in queue
+      this.game.selectNextUnit();
+      return;
+    }
+
+    // Calculate new position
+    const newPosition = {
+      x: currentUnit.position.x + deltaX,
+      y: currentUnit.position.y + deltaY
+    };
+
+    // Attempt to move the unit
+    const success = this.game.moveUnit(currentUnit.id, newPosition);
+    
+    if (success) {
+      // Update renderer to follow the unit
+      this.renderer.centerOn(newPosition.x, newPosition.y);
+      this.requestRender();
+    }
+    
+    // If unit exhausted movement points, it will be automatically removed from queue
+    // and next unit will be selected by the Game class
   }
 
   // Normalize position coordinates with horizontal wrapping
