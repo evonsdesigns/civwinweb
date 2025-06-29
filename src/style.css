@@ -18,6 +18,12 @@
   box-sizing: border-box;
 }
 
+html {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
 body {
   margin: 0;
   padding: 0;
@@ -34,6 +40,9 @@ body {
   height: 100vh;
   display: flex;
   flex-direction: column;
+  position: relative;
+  margin: 0;
+  padding: 0;
 }
 
 #game-ui {
@@ -41,64 +50,123 @@ body {
   height: 100%;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
 }
 
-#game-toolbar {
-  background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+/* Menu Bar Styles */
+#menu-bar {
+  background: #c0c0c0;
+  border-bottom: 2px solid #808080;
+  display: flex;
+  padding: 0;
+  margin: 0;
+  font-family: 'MS Sans Serif', sans-serif;
+  font-size: 11px;
+  position: relative;
+  z-index: 1700;
+  flex-shrink: 0;
+  width: 100%;
+  top: 0;
+  left: 0;
+}
+
+.menu-item {
+  position: relative;
+  display: inline-block;
+}
+
+.menu-label {
+  display: block;
+  padding: 4px 8px;
+  cursor: pointer;
+  color: #000;
+  background: #c0c0c0;
+  border: 1px solid transparent;
+  user-select: none;
+  white-space: nowrap;
+  line-height: 1.2;
+  min-height: 16px;
+}
+
+.menu-item:hover .menu-label,
+.menu-item.active .menu-label {
+  background: #0078d4;
   color: white;
-  padding: 10px 20px;
+  border: 1px solid #0078d4;
+}
+
+.dropdown-menu {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  background: #c0c0c0;
+  border: 2px outset #c0c0c0;
+  min-width: 150px;
+  padding: 2px;
+  margin: 0;
+  list-style: none;
+  display: none;
+  z-index: 1800;
+  box-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.menu-item:hover .dropdown-menu,
+.menu-item.active .dropdown-menu {
+  display: block;
+}
+
+.dropdown-menu li {
+  margin: 0;
+  padding: 0;
+}
+
+.dropdown-menu a {
+  display: block;
+  padding: 3px 16px 3px 8px;
+  color: #000;
+  text-decoration: none;
+  border: 1px solid transparent;
+}
+
+.dropdown-menu a:hover {
+  background: #0078d4;
+  color: white;
+  border: 1px solid #0078d4;
+}
+
+.dropdown-menu .separator {
+  height: 1px;
+  background: #808080;
+  margin: 2px 4px;
+  border: none;
+}
+
+/* Game Status Bar */
+#game-status-bar {
+  background: #c0c0c0;
+  border-bottom: 1px solid #808080;
+  padding: 4px 8px;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
-  z-index: 100;
-}
-
-#game-toolbar h1 {
-  margin: 0;
-  font-size: 24px;
-  font-weight: 600;
-  color: #ecf0f1;
+  font-family: 'MS Sans Serif', sans-serif;
+  font-size: 11px;
+  flex-shrink: 0;
+  min-height: 20px;
 }
 
 #game-info {
   display: flex;
   gap: 20px;
   align-items: center;
-  font-size: 14px;
 }
 
 #game-info span {
-  background: rgba(255, 255, 255, 0.1);
-  padding: 5px 10px;
-  border-radius: 4px;
-  font-weight: 500;
-}
-
-#scenario-controls {
-  display: flex;
-  gap: 10px;
-  align-items: center;
-  font-size: 14px;
-}
-
-#scenario-controls label {
-  color: #ecf0f1;
-  font-weight: 500;
-}
-
-#scenario-select {
-  background: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  color: white;
-  padding: 5px 8px;
-  border-radius: 4px;
-  font-size: 13px;
-}
-
-#scenario-select option {
-  background: #2c3e50;
-  color: white;
+  background: #f0f0f0;
+  border: 1px inset #c0c0c0;
+  padding: 2px 6px;
+  font-weight: normal;
+  color: #000;
 }
 
 .player-info {
@@ -186,6 +254,137 @@ button:disabled {
   background: linear-gradient(135deg, #e67e22 0%, #f39c12 100%);
 }
 
+/* Modal Dialog Styles */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.5);
+  display: none;
+  z-index: 2000;
+  align-items: center;
+  justify-content: center;
+}
+
+.modal-overlay.active {
+  display: flex;
+}
+
+.modal-dialog {
+  background: #c0c0c0;
+  border: 2px outset #c0c0c0;
+  padding: 8px;
+  min-width: 300px;
+  font-family: 'MS Sans Serif', sans-serif;
+  font-size: 11px;
+  box-shadow: 4px 4px 8px rgba(0, 0, 0, 0.5);
+}
+
+.modal-title {
+  background: #0078d4;
+  color: white;
+  padding: 2px 4px;
+  margin: -8px -8px 8px -8px;
+  font-weight: bold;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.modal-close {
+  background: #c0c0c0;
+  border: 1px outset #c0c0c0;
+  width: 16px;
+  height: 14px;
+  text-align: center;
+  line-height: 12px;
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: bold;
+}
+
+.modal-close:hover {
+  background: #e0e0e0;
+}
+
+.modal-close:active {
+  border: 1px inset #c0c0c0;
+}
+
+.modal-content {
+  padding: 8px 4px;
+}
+
+.scenario-options {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 8px 0;
+}
+
+.scenario-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px;
+  border: 1px solid transparent;
+  cursor: pointer;
+}
+
+.scenario-option:hover {
+  background: #e0e0e0;
+  border: 1px solid #0078d4;
+}
+
+.scenario-option input[type="radio"] {
+  margin: 0;
+}
+
+.scenario-option label {
+  cursor: pointer;
+  flex: 1;
+}
+
+.modal-buttons {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  margin-top: 16px;
+}
+
+.modal-button {
+  background: #c0c0c0;
+  border: 1px outset #c0c0c0;
+  padding: 4px 12px;
+  font-family: 'MS Sans Serif', sans-serif;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.modal-button:hover {
+  background: #e0e0e0;
+}
+
+.modal-button:active {
+  border: 1px inset #c0c0c0;
+}
+
+.modal-button.primary {
+  background: #0078d4;
+  color: white;
+  border: 1px outset #0078d4;
+}
+
+.modal-button.primary:hover {
+  background: #106ebe;
+}
+
+.modal-button.primary:active {
+  border: 1px inset #0078d4;
+}
+
 /* Game-specific UI elements */
 .tooltip {
   position: absolute;
@@ -199,14 +398,105 @@ button:disabled {
   max-width: 200px;
 }
 
-.game-overlay {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  pointer-events: none;
-  z-index: 50;
+/* Minimap Window */
+.minimap-window {
+  position: fixed;
+  top: 80px;
+  left: 20px;
+  width: 220px;
+  height: 190px;
+  background: #c0c0c0;
+  border: 2px outset #c0c0c0;
+  font-family: 'MS Sans Serif', sans-serif;
+  font-size: 11px;
+  z-index: 1500;
+  box-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+  display: block;
+}
+
+.minimap-header {
+  background: linear-gradient(to right, #0078d4, #106ebe);
+  color: white;
+  padding: 2px 6px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  cursor: move;
+  user-select: none;
+  height: 18px;
+  line-height: 14px;
+  border-bottom: 1px solid #000080;
+}
+
+.minimap-title {
+  font-weight: normal;
+  font-size: 11px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.minimap-title::before {
+  content: "🗺️";
+  font-size: 10px;
+}
+
+.minimap-close {
+  background: none;
+  border: none;
+  color: white;
+  font-size: 12px;
+  font-weight: bold;
+  cursor: pointer;
+  padding: 0;
+  width: 16px;
+  height: 14px;
+  text-align: center;
+  line-height: 12px;
+  border: 1px solid transparent;
+}
+
+.minimap-close:hover {
+  background: rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+.minimap-content {
+  padding: 8px;
+  height: calc(100% - 18px);
+  background: #c0c0c0;
+  display: flex;
+  flex-direction: column;
+}
+
+#minimap-canvas {
+  border: 1px inset #c0c0c0;
+  display: block;
+  width: 200px;
+  height: 125px;
+  cursor: crosshair;
+  background: #000000;
+  margin-bottom: 4px;
+}
+
+#minimap-canvas:hover {
+  border: 1px inset #808080;
+}
+
+.minimap-status {
+  display: flex;
+  justify-content: space-between;
+  font-size: 9px;
+  color: #000;
+  background: #f0f0f0;
+  border: 1px inset #c0c0c0;
+  padding: 2px 4px;
+  height: 16px;
+  align-items: center;
+}
+
+.minimap-window.hidden {
+  display: none;
 }
 
 /* Responsive design */

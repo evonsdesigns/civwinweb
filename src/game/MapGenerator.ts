@@ -583,8 +583,15 @@ export class MapGenerator {
     // Create the connected Eurasian landmass
     this.createConnectedEurasia(map, width, height);
     
-    // British Isles (separate island)
-    this.createLandmass(map, width * 0.42, height * 0.22, width * 0.06, height * 0.08, width, height, 0.85);
+    // British Isles as separate islands
+    // Great Britain (UK) - larger island to the east
+    this.createLandmass(map, width * 0.44, height * 0.22, width * 0.04, height * 0.08, width, height, 0.85);
+    
+    // Ireland - smaller island to the west
+    this.createLandmass(map, width * 0.39, height * 0.23, width * 0.025, height * 0.06, width, height, 0.8);
+    
+    // Iceland (separate Nordic island)
+    this.createLandmass(map, width * 0.36, height * 0.15, width * 0.025, height * 0.04, width, height, 0.8);
   }
 
   // Create Africa

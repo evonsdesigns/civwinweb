@@ -8,16 +8,25 @@ export class InputHandler {
   private renderer: Renderer;
   private canvas: HTMLCanvasElement;
   private requestRender: () => void;
+  private minimapToggle?: () => void;
   private isDragging = false;
   private lastMousePos = { x: 0, y: 0 };
   private dragStartPos = { x: 0, y: 0 };
 
-  constructor(game: Game, gameRenderer: GameRenderer, renderer: Renderer, canvas: HTMLCanvasElement, requestRender: () => void) {
+  constructor(
+    game: Game, 
+    gameRenderer: GameRenderer, 
+    renderer: Renderer, 
+    canvas: HTMLCanvasElement, 
+    requestRender: () => void,
+    minimapToggle?: () => void
+  ) {
     this.game = game;
     this.gameRenderer = gameRenderer;
     this.renderer = renderer;
     this.canvas = canvas;
     this.requestRender = requestRender;
+    this.minimapToggle = minimapToggle;
     
     this.setupEventListeners();
     this.updateMapDimensions();
@@ -229,6 +238,13 @@ export class InputHandler {
         
       case 'p': // Pause/unpause
         this.game.togglePause();
+        break;
+        
+      case 'm': // Toggle minimap
+      case 'M':
+        if (this.minimapToggle) {
+          this.minimapToggle();
+        }
         break;
         
       case 'ArrowUp':
