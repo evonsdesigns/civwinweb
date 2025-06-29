@@ -41,7 +41,7 @@ export class TerrainManager {
     if (this.terrainInstances.size === 0) {
       this.initialize();
     }
-    
+
     const terrain = this.terrainInstances.get(type);
     if (!terrain) {
       throw new Error(`Unknown terrain type: ${type}`);
@@ -60,21 +60,16 @@ export class TerrainManager {
    * Get terrain sprite (with or without connections)
    */
   public static getTerrainSprite(type: TerrainType, tileSize: number, connections?: ConnectionPattern): HTMLCanvasElement {
-    // Create cache key
     const key = `${type}_${tileSize}_${connections || 0}`;
-    
-    console.debug(`getTerrainSprite: type=${type}, tileSize=${tileSize}, connections=${connections}, key=${key}`);
-    
-    // Check cache first
+
     if (this.spriteCache.has(key)) {
-      console.debug(`  Using cached sprite for ${key}`);
       return this.spriteCache.get(key)!;
     }
-    
+
     // Generate sprite
     const terrain = this.getTerrain(type);
     let sprite: HTMLCanvasElement;
-    
+
     if (connections !== undefined && terrain.useConnections) {
       console.debug(`  Creating connected sprite for ${type}`);
       sprite = terrain.createConnectedSprite(tileSize, connections);

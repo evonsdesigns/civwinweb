@@ -2,6 +2,10 @@
 import { TechnologyType, TechnologyEra } from '../game/TechnologyDefinitions';
 import type { Technology } from '../game/TechnologyDefinitions';
 
+// Civilization imports
+import { CivilizationType } from '../game/CivilizationDefinitions';
+import type { Civilization } from '../game/CivilizationDefinitions';
+
 // Game coordinate system types
 export interface Position {
   x: number;
@@ -66,6 +70,8 @@ export interface Unit {
   experience: number;
   isVeteran: boolean;
   fortified: boolean;
+  fortifying?: boolean; // True if unit is in the process of fortifying (first turn of 2-turn fortification)
+  fortificationTurns?: number; // How many turns of fortification have been completed
 }
 
 export const UnitCategory = {
@@ -198,6 +204,7 @@ export type ImprovementType = typeof ImprovementType[keyof typeof ImprovementTyp
 export interface Player {
   id: string;
   name: string;
+  civilizationType: CivilizationType;
   color: string;
   isHuman: boolean;
   science: number;
@@ -206,6 +213,7 @@ export interface Player {
   technologies: TechnologyType[];
   government: GovernmentType;
   revolutionTurns?: number; // Turns remaining in anarchy during revolution
+  usedCityNames: string[]; // Track which city names have been used
 }
 
 // Government system types

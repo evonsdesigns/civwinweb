@@ -2,6 +2,9 @@ import { Game } from '../game/Game.js';
 import { GameRenderer } from '../renderer/GameRenderer.js';
 import { Renderer } from '../renderer/Renderer.js';
 import { Status } from '../renderer/Status.js';
+import { CityView } from '../renderer/CityView.js';
+import { canUnitFortify } from '../game/UnitDefinitions.js';
+import { Position, GameState, UnitType } from '../types/game.js';
 
 export class InputHandler {
   private game: Game;
@@ -11,6 +14,7 @@ export class InputHandler {
   private requestRender: () => void;
   private minimapToggle?: () => void;
   private status?: Status;
+  private cityView?: CityView;
   private isDragging = false;
   private lastMousePos = { x: 0, y: 0 };
   private dragStartPos = { x: 0, y: 0 };
@@ -22,7 +26,8 @@ export class InputHandler {
     canvas: HTMLCanvasElement, 
     requestRender: () => void,
     minimapToggle?: () => void,
-    status?: Status
+    status?: Status,
+    cityView?: CityView
   ) {
     this.game = game;
     this.gameRenderer = gameRenderer;
@@ -31,6 +36,7 @@ export class InputHandler {
     this.requestRender = requestRender;
     this.minimapToggle = minimapToggle;
     this.status = status;
+    this.cityView = cityView;
     
     this.setupEventListeners();
     this.updateMapDimensions();
@@ -92,9 +98,43 @@ export class InputHandler {
       // Move viewport
       this.renderer.moveViewport(deltaX, deltaY);
       this.requestRender();
+    } else {
+      // Update cursor based on selected unit and hovered tile
+      this.updateCursor(mouseX, mouseY);
     }
     
     this.lastMousePos = { x: mouseX, y: mouseY };
+  }
+
+  // Update cursor based on context
+  private updateCursor(mouseX: number, mouseY: number): void {
+    const selectedUnit = this.gameRenderer.getSelectedUnit();
+    if (!selectedUnit) {
+      this.canvas.style.cursor = 'default';
+      return;
+    }
+
+    const gameState = this.game.getGameState();
+    if (selectedUnit.playerId !== gameState.currentPlayer) {
+      this.canvas.style.cursor = 'default';
+      return;
+    }
+
+    const worldPos = this.renderer.screenToWorld(mouseX, mouseY);
+    const normalizedPos = this.normalizePosition(worldPos, gameState);
+    
+    // Check if hovering over the selected unit itself
+    if (selectedUnit.position.x === normalizedPos.x && selectedUnit.position.y === normalizedPos.y) {
+      this.canvas.style.cursor = 'pointer';
+      return;
+    }
+    
+    // Check if position is adjacent and unit can move there
+    if (this.isAdjacent(selectedUnit.position, normalizedPos, gameState) && selectedUnit.movementPoints > 0) {
+      this.canvas.style.cursor = this.getDirectionCursor(selectedUnit.position, normalizedPos, gameState);
+    } else {
+      this.canvas.style.cursor = 'default';
+    }
   }
 
   // Handle mouse up events
@@ -164,10 +204,57 @@ export class InputHandler {
     event.preventDefault();
   }
 
+  // Check if a position is adjacent to a unit's current position
+  private isAdjacent(unitPos: Position, targetPos: Position, gameState: GameState): boolean {
+    const mapWidth = gameState.worldMap[0]?.length || 80;
+    
+    // Calculate direct distance
+    const directDx = Math.abs(unitPos.x - targetPos.x);
+    
+    // Calculate wrapped distance
+    const wrappedDx = mapWidth - directDx;
+    
+    // Use shorter distance
+    const dx = Math.min(directDx, wrappedDx);
+    const dy = Math.abs(unitPos.y - targetPos.y);
+    
+    // Adjacent tiles have distance of 1 (including diagonals)
+    return dx <= 1 && dy <= 1 && !(dx === 0 && dy === 0);
+  }
+
+  // Get direction from unit position to target position for cursor
+  private getDirectionCursor(unitPos: Position, targetPos: Position, gameState: GameState): string {
+    const mapWidth = gameState.worldMap[0]?.length || 80;
+    
+    // Calculate direction considering wrapping
+    let dx = targetPos.x - unitPos.x;
+    const wrappedDx = dx > mapWidth / 2 ? dx - mapWidth : dx < -mapWidth / 2 ? dx + mapWidth : dx;
+    dx = wrappedDx;
+    
+    const dy = targetPos.y - unitPos.y;
+    
+    // Determine direction and return appropriate cursor
+    if (dx === 0 && dy === -1) return 'n-resize'; // North
+    if (dx === 1 && dy === -1) return 'ne-resize'; // Northeast
+    if (dx === 1 && dy === 0) return 'e-resize'; // East
+    if (dx === 1 && dy === 1) return 'se-resize'; // Southeast
+    if (dx === 0 && dy === 1) return 's-resize'; // South
+    if (dx === -1 && dy === 1) return 'sw-resize'; // Southwest
+    if (dx === -1 && dy === 0) return 'w-resize'; // West
+    if (dx === -1 && dy === -1) return 'nw-resize'; // Northwest
+    
+    return 'default';
+  }
+
   // Handle left click
   private handleLeftClick(mouseX: number, mouseY: number): void {
     const worldPos = this.renderer.screenToWorld(mouseX, mouseY);
     const gameState = this.game.getGameState();
+    
+    // Block input if current player is AI
+    if (this.isCurrentPlayerAI(gameState)) {
+      return;
+    }
     
     // Update map dimensions in case the game was just initialized
     this.updateMapDimensions();
@@ -175,15 +262,63 @@ export class InputHandler {
     // Normalize position for horizontal wrapping
     const normalizedPos = this.normalizePosition(worldPos, gameState);
     
+    // Check if clicking on a city
+    const clickedCity = gameState.cities.find(city => 
+      city.position.x === normalizedPos.x && city.position.y === normalizedPos.y
+    );
+    
+    if (clickedCity) {
+      // Only allow selection of cities belonging to current human player
+      if (clickedCity.playerId !== gameState.currentPlayer) {
+        return;
+      }
+      
+      // Select the city and show city view
+      console.log(`Clicked on city: ${clickedCity.name}`);
+      
+      // Clear unit selection
+      this.gameRenderer.clearSelections();
+      
+      // Notify Status window of city selection
+      if (this.status) {
+        this.status.setSelectedCity(clickedCity);
+      }
+      
+      // Open city view window
+      if (this.cityView) {
+        this.cityView.open(clickedCity);
+      } else {
+        // Fallback to alert if cityView is not available
+        alert(`City: ${clickedCity.name}\nPopulation: ${clickedCity.population}\nOwner: ${clickedCity.playerId}`);
+      }
+      
+      this.requestRender();
+      return;
+    }
+    
     // Check if clicking on a unit
     const clickedUnit = gameState.units.find(unit => 
       unit.position.x === normalizedPos.x && unit.position.y === normalizedPos.y
     );
     
     if (clickedUnit) {
+      // Only allow selection of units belonging to current human player
+      if (clickedUnit.playerId !== gameState.currentPlayer) {
+        return;
+      }
+      
       // Select the unit
       this.gameRenderer.selectUnit(clickedUnit);
       this.gameRenderer.selectTile(worldPos.x, worldPos.y);
+      
+      // If the unit is fortified or fortifying, wake it up and add to move queue
+      if ((clickedUnit.fortified || clickedUnit.fortifying) && 
+          clickedUnit.playerId === gameState.currentPlayer) {
+        const success = this.game.wakeAndActivateUnit(clickedUnit.id);
+        if (success) {
+          console.log(`Woke up fortified unit ${clickedUnit.id}`);
+        }
+      }
       
       // Notify Status window of unit selection
       if (this.status) {
@@ -195,12 +330,16 @@ export class InputHandler {
       // Check if we have a unit selected and are trying to move it
       const selectedUnit = this.gameRenderer.getSelectedUnit();
       if (selectedUnit && selectedUnit.playerId === gameState.currentPlayer) {
-        // Attempt to move the unit
-        const success = this.game.moveUnit(selectedUnit.id, normalizedPos);
-        if (success) {
-          this.gameRenderer.selectTile(worldPos.x, worldPos.y);
-          this.requestRender();
+        // Only allow movement to adjacent tiles
+        if (this.isAdjacent(selectedUnit.position, normalizedPos, gameState)) {
+          // Attempt to move the unit
+          const success = this.game.moveUnit(selectedUnit.id, normalizedPos);
+          if (success) {
+            this.gameRenderer.selectTile(worldPos.x, worldPos.y);
+            this.requestRender();
+          }
         }
+        // If not adjacent, do nothing (no movement)
       } else {
         // Just select the tile
         this.gameRenderer.selectTile(worldPos.x, worldPos.y);
@@ -220,23 +359,56 @@ export class InputHandler {
   private handleRightClick(mouseX: number, mouseY: number): void {
     const worldPos = this.renderer.screenToWorld(mouseX, mouseY);
     const gameState = this.game.getGameState();
+    
+    // Block input if current player is AI
+    if (this.isCurrentPlayerAI(gameState)) {
+      return;
+    }
+    
     const selectedUnit = this.gameRenderer.getSelectedUnit();
     
     // Update map dimensions in case the game was just initialized
     this.updateMapDimensions();
     
-    if (selectedUnit) {
+    if (selectedUnit && selectedUnit.playerId === gameState.currentPlayer) {
       // Normalize position for horizontal wrapping
       const normalizedPos = this.normalizePosition(worldPos, gameState);
       
-      // Move unit to right-clicked position
-      this.game.moveUnit(selectedUnit.id, normalizedPos);
-      this.requestRender();
+      // Only allow movement to adjacent tiles
+      if (this.isAdjacent(selectedUnit.position, normalizedPos, gameState)) {
+        // Move unit to right-clicked position
+        this.game.moveUnit(selectedUnit.id, normalizedPos);
+        this.requestRender();
+      }
+      // If not adjacent, do nothing (no movement)
     }
   }
 
   // Handle keyboard events
   private onKeyDown(event: KeyboardEvent): void {
+    const gameState = this.game.getGameState();
+    
+    // Block most input during AI turns, but allow some general commands
+    if (this.isCurrentPlayerAI(gameState)) {
+      // Only allow these commands during AI turns
+      switch (event.key) {
+        case 'p': // Pause/unpause
+          this.game.togglePause();
+          break;
+        case 'm': // Toggle minimap
+        case 'M':
+          if (this.minimapToggle) {
+            this.minimapToggle();
+          }
+          break;
+        case 'Escape': // Clear selections
+          this.gameRenderer.clearSelections();
+          this.requestRender();
+          break;
+      }
+      return; // Block all other input during AI turns
+    }
+    
     switch (event.key) {
       case ' ': // Spacebar - end turn
         event.preventDefault();
@@ -250,6 +422,11 @@ export class InputHandler {
         
       case 'b': // Build city (if settler selected)
         this.handleBuildCity();
+        break;
+        
+      case 'f': // Fortify unit (if land unit selected)
+      case 'F':
+        this.handleFortifyUnit();
         break;
         
       case 'p': // Pause/unpause
@@ -359,14 +536,46 @@ export class InputHandler {
 
   // Handle build city command
   private handleBuildCity(): void {
+    const gameState = this.game.getGameState();
+    
+    // Block action if current player is AI
+    if (this.isCurrentPlayerAI(gameState)) {
+      return;
+    }
+    
     const selectedUnit = this.gameRenderer.getSelectedUnit();
-    if (selectedUnit && selectedUnit.type === 'settler') {
-      // Prompt for city name
-      const cityName = prompt('Enter city name:', 'New City');
+    if (selectedUnit && selectedUnit.type === UnitType.SETTLER) {
+      // Prompt for city name with civilization-specific suggestion
+      const cityName = prompt('Enter city name:', this.game.generateCityName(selectedUnit.playerId));
       if (cityName) {
         const success = this.game.foundCity(selectedUnit.id, cityName);
         if (success) {
           this.gameRenderer.clearSelections();
+          this.requestRender();
+        }
+      }
+    }
+  }
+
+  // Handle fortify unit command
+  private handleFortifyUnit(): void {
+    const gameState = this.game.getGameState();
+    
+    // Block action if current player is AI
+    if (this.isCurrentPlayerAI(gameState)) {
+      return;
+    }
+    
+    const currentUnit = this.game.getCurrentUnit();
+    if (currentUnit && currentUnit.playerId === gameState.currentPlayer) {
+      // Check if unit can be fortified using unit definitions
+      if (canUnitFortify(currentUnit.type)) {
+        const success = this.game.fortifyUnit(currentUnit.id);
+        if (success) {
+          // Update status display if available
+          if (this.status) {
+            this.status.setSelectedUnit(currentUnit);
+          }
           this.requestRender();
         }
       }
@@ -390,6 +599,13 @@ export class InputHandler {
 
   // Handle unit movement with arrow keys
   private handleUnitMovement(deltaX: number, deltaY: number): void {
+    const gameState = this.game.getGameState();
+    
+    // Block movement if current player is AI
+    if (this.isCurrentPlayerAI(gameState)) {
+      return;
+    }
+    
     // Get the currently selected unit from the game's unit queue system
     const currentUnit = this.game.getCurrentUnit();
     
@@ -399,7 +615,6 @@ export class InputHandler {
     }
 
     // Check if unit belongs to current player
-    const gameState = this.game.getGameState();
     if (currentUnit.playerId !== gameState.currentPlayer) {
       // Can't move units that don't belong to current player
       return;
@@ -480,5 +695,11 @@ export class InputHandler {
     const yVisible = worldY >= visibleRange.startY && worldY <= visibleRange.endY;
     
     return xVisible && yVisible;
+  }
+
+  // Check if current player is AI
+  private isCurrentPlayerAI(gameState: GameState): boolean {
+    const currentPlayer = gameState.players.find(p => p.id === gameState.currentPlayer);
+    return currentPlayer ? !currentPlayer.isHuman : false;
   }
 }

@@ -6,6 +6,9 @@ import { getUnitStats } from './UnitDefinitions';
 import { CombatSystem, CombatResult } from './CombatSystem';
 import { getTechnology, canResearch, getResearchCost } from './TechnologyDefinitions';
 import { TerrainManager } from '../terrain/index';
+import { CIVILIZATION_DEFINITIONS, CivilizationType, getAllCivilizations, getCivilization, Civilization } from './CivilizationDefinitions';
+import { AIPlayer } from './AIPlayer';
+import { SoundEffects } from '../utils/SoundEffects';
 
 export class Game {
   private gameState: GameState;
@@ -63,19 +66,30 @@ export class Game {
 
   // Create players with default settings
   private createPlayers(playerNames: string[]): Player[] {
-    const colors = ['#FFFF00', '#0000FF', '#00FF00', '#FFFFFF', '#FF00FF', '#00FF00', '#000000'];
+    const availableCivs = getAllCivilizations();
+    console.log('createPlayers: Available civilizations:', availableCivs.map(c => c.name));
     
-    return playerNames.map((name, index) => ({
-      id: `player-${index}`,
-      name,
-      color: colors[index] || '#FFFFFF',
-      isHuman: index === 0, // First player is human, others are AI
-      science: 20, // Start with some science points for testing
-      gold: 50,
-      culture: 0,
-      technologies: [], // Start with no technologies - can research basic ones
-      government: GovernmentType.DESPOTISM // Start with Despotism
-    }));
+    return playerNames.map((name, index) => {
+      // Assign different civilizations to each player
+      const civIndex = index % availableCivs.length;
+      const civilization = availableCivs[civIndex];
+      
+      console.log(`createPlayers: Assigning ${civilization.name} to player ${name} (index ${index})`);
+      
+      return {
+        id: `player-${index}`,
+        name,
+        civilizationType: civilization.id,
+        color: civilization.color,
+        isHuman: index === 0, // First player is human, others are AI
+        science: 20, // Start with some science points for testing
+        gold: 50,
+        culture: 0,
+        technologies: [], // Start with no technologies - can research basic ones
+        government: GovernmentType.DESPOTISM, // Start with Despotism
+        usedCityNames: [] // Initialize empty array for tracking used city names
+      };
+    });
   }
 
   // Place initial settler and warrior for each player
@@ -184,7 +198,7 @@ export class Game {
   }
 
   // Game turn management
-  public endTurn(): void {
+  public async endTurn(): Promise<void> {
     if (this.gameState.gamePhase !== GamePhase.PLAYING) return;
 
     // Clear current unit selection and stop blinking
@@ -193,22 +207,58 @@ export class Game {
     // Process the turn (restore movement points, handle cities, advance to next player)
     this.turnManager.processTurn(this.gameState);
     
-    // Build queue for the new current player and select first unit
+    // Check if the new current player is AI and handle automatically
+    await this.processCurrentPlayerTurn();
+    
+    this.emit('turnEnded', this.gameState);
+  }
+
+  // Process the current player's turn (human or AI)
+  private async processCurrentPlayerTurn(): Promise<void> {
+    while (this.isCurrentPlayerAI()) {
+      // Execute AI turn
+      const currentPlayer = this.getCurrentPlayer();
+      if (currentPlayer) {
+        this.emit('aiTurnStarted', { playerId: currentPlayer.id, playerName: currentPlayer.name });
+        
+        // Execute AI logic
+        await AIPlayer.executeTurn(this.gameState, currentPlayer.id);
+        
+        // Process the turn end for AI
+        this.turnManager.processTurn(this.gameState);
+        
+        this.emit('aiTurnEnded', { playerId: currentPlayer.id, playerName: currentPlayer.name });
+      }
+    }
+    
+    // Now it's a human player's turn - emit event and setup
+    this.emit('humanTurnStarted', { playerId: this.gameState.currentPlayer });
     this.buildUnitQueue();
     if (this.unitQueue.length > 0) {
       this.selectCurrentUnit();
     }
-    
-    this.emit('turnEnded', this.gameState);
+  }
+
+  // Check if the current player is AI
+  private isCurrentPlayerAI(): boolean {
+    const currentPlayer = this.getCurrentPlayer();
+    return currentPlayer ? !currentPlayer.isHuman : false;
+  }
+
+  // Get the current player object
+  private getCurrentPlayer(): Player | null {
+    return this.gameState.players.find(p => p.id === this.gameState.currentPlayer) || null;
   }
 
   // Build queue of units that can move for current player
   private buildUnitQueue(): void {
     const currentPlayer = this.gameState.currentPlayer;
     
-    // Get all units for current player that have movement points
+    // Get all units for current player that have movement points OR are fortified
+    // Fortified units should be available for activation even though they have 0 movement points
     this.unitQueue = this.gameState.units.filter(unit => 
-      unit.playerId === currentPlayer && unit.movementPoints > 0
+      unit.playerId === currentPlayer && 
+      (unit.movementPoints > 0 || unit.fortified || unit.fortifying)
     );
     
     this.currentUnitIndex = 0;
@@ -223,14 +273,30 @@ export class Game {
       return;
     }
 
-    // Move to next unit
-    this.currentUnitIndex++;
-    if (this.currentUnitIndex >= this.unitQueue.length) {
-      this.currentUnitIndex = 0;
-    }
+    const startIndex = this.currentUnitIndex;
+    
+    do {
+      // Move to next unit
+      this.currentUnitIndex++;
+      if (this.currentUnitIndex >= this.unitQueue.length) {
+        this.currentUnitIndex = 0;
+      }
 
-    const currentUnit = this.unitQueue[this.currentUnitIndex];
-    this.setCurrentUnit(currentUnit);
+      const currentUnit = this.unitQueue[this.currentUnitIndex];
+      
+      // If we find a unit that can move (not fortified), select it
+      if (currentUnit.movementPoints > 0 && !currentUnit.fortified && !currentUnit.fortifying) {
+        this.setCurrentUnit(currentUnit);
+        return;
+      }
+      
+      // If we've cycled through all units and they're all fortified, 
+      // just select the current one (player can activate manually)
+      if (this.currentUnitIndex === startIndex) {
+        this.setCurrentUnit(currentUnit);
+        return;
+      }
+    } while (this.currentUnitIndex !== startIndex);
   }
 
   // Select current unit (used when unit is removed from queue)
@@ -267,7 +333,10 @@ export class Game {
 
   // Set the current unit and emit events
   private setCurrentUnit(unit: Unit): void {
-    this.startUnitBlinking();
+    // Only start blinking if unit is not fortified or fortifying
+    if (!unit.fortified && !unit.fortifying) {
+      this.startUnitBlinking();
+    }
     this.emit('unitSelected', {
       unit: unit,
       unitIndex: this.currentUnitIndex,
@@ -291,7 +360,7 @@ export class Game {
     this.stopUnitBlinking();
     this.blinkIntervalId = window.setInterval(() => {
       this.emit('unitBlink');
-    }, 1000); // Blink every second
+    }, 750); // Blink every second
   }
 
   // Stop blinking effect
@@ -331,24 +400,11 @@ export class Game {
     }
   }
 
-  // Audio utility for playing game sounds
-  private playSound(soundPath: string): void {
-    try {
-      const audio = new Audio(soundPath);
-      audio.volume = 0.5; // Set volume to 50%
-      audio.play().catch(error => {
-        console.warn('Failed to play sound:', soundPath, error);
-      });
-    } catch (error) {
-      console.warn('Failed to create audio for:', soundPath, error);
-    }
-  }
-
   // Move a unit
   public moveUnit(unitId: string, newPosition: Position): boolean {
     const unit = this.gameState.units.find((u: Unit) => u.id === unitId);
     if (!unit || unit.movementPoints <= 0) {
-      this.playSound('src/audio/NEG1.WAV');
+      SoundEffects.playInvalidActionSound();
       return false;
     }
 
@@ -357,13 +413,13 @@ export class Game {
 
     // Check if target tile is valid
     if (!this.isValidPosition(normalizedPosition)) {
-      this.playSound('src/audio/NEG1.WAV');
+      SoundEffects.playInvalidActionSound();
       return false;
     }
 
     // Check terrain-based movement restrictions
     if (!this.canUnitMoveToTerrain(unit, normalizedPosition)) {
-      this.playSound('src/audio/NEG1.WAV');
+      SoundEffects.playInvalidActionSound();
       return false;
     }
 
@@ -374,12 +430,19 @@ export class Game {
     // exceeds remaining movement points. In that case, it drains all remaining movement to 0.
     // However, unit must have at least some movement points to move
     if (unit.movementPoints <= 0) {
-      this.playSound('src/audio/NEG1.WAV');
+      SoundEffects.playInvalidActionSound();
       return false;
     }
 
     // Move unit
     unit.position = normalizedPosition;
+    
+    // Break fortification when unit moves
+    if (unit.fortified || unit.fortifying) {
+      unit.fortified = false;
+      unit.fortifying = false;
+      unit.fortificationTurns = 0;
+    }
     
     // If movement cost exceeds remaining points, drain all remaining movement
     if (movementCost > unit.movementPoints) {
@@ -526,15 +589,94 @@ export class Game {
     return true;
   }
 
+  // Random word components for generating city names when civilization list is exhausted
+  private readonly cityPrefixes = [
+    'New', 'Old', 'Great', 'Little', 'Upper', 'Lower', 'North', 'South', 'East', 'West',
+    'Fort', 'Port', 'Mount', 'Lake', 'River', 'Valley', 'Hill', 'Stone', 'Golden', 'Silver'
+  ];
+
+  private readonly citySuffixes = [
+    'town', 'city', 'burg', 'holm', 'ford', 'haven', 'port', 'field', 'wood', 'hill',
+    'vale', 'stead', 'bridge', 'marsh', 'grove', 'ridge', 'fall', 'glen', 'moor', 'wick'
+  ];
+
+  // Generate a random city name when civilization names are exhausted
+  private generateRandomCityName(): string {
+    const prefix = this.cityPrefixes[Math.floor(Math.random() * this.cityPrefixes.length)];
+    const suffix = this.citySuffixes[Math.floor(Math.random() * this.citySuffixes.length)];
+    return `${prefix}${suffix}`;
+  }
+
+  // Generate a default city name for a player based on their civilization
+  public generateCityName(playerId: string): string {
+    const player = this.gameState.players.find(p => p.id === playerId);
+    if (!player) {
+      console.warn('generateCityName: Player not found for ID:', playerId);
+      return 'New City';
+    }
+
+    const civilization = getCivilization(player.civilizationType);
+    console.log('generateCityName: Player civilization:', civilization.name, 'Available cities:', civilization.cities.length);
+    console.log('generateCityName: Player used city names:', player.usedCityNames);
+    
+    // Get available city names (not yet used)
+    const availableCityNames = civilization.cities.filter(cityName => 
+      !player.usedCityNames.includes(cityName)
+    );
+    
+    console.log('generateCityName: Available city names:', availableCityNames);
+    
+    // If we have available civilization-specific names, use the first one
+    if (availableCityNames.length > 0) {
+      const cityName = availableCityNames[0];
+      console.log('generateCityName: Returning civilization city name:', cityName);
+      // We'll mark it as used when the city is actually founded
+      return cityName;
+    }
+    
+    console.log('generateCityName: All civilization names exhausted, generating random name');
+    
+    // If all civilization names are used, generate a random name
+    let randomName: string;
+    let attempts = 0;
+    const maxAttempts = 50; // Prevent infinite loops
+    
+    do {
+      randomName = this.generateRandomCityName();
+      attempts++;
+    } while (player.usedCityNames.includes(randomName) && attempts < maxAttempts);
+    
+    // If we still have a duplicate after max attempts, add a number
+    if (player.usedCityNames.includes(randomName)) {
+      randomName = `${randomName} ${player.usedCityNames.length + 1}`;
+    }
+    
+    console.log('generateCityName: Returning random city name:', randomName);
+    return randomName;
+  }
+
   // Found a city
-  public foundCity(unitId: string, cityName: string): boolean {
+  public foundCity(unitId: string, cityName?: string): boolean {
     const unit = this.gameState.units.find((u: Unit) => u.id === unitId);
     if (!unit || unit.type !== UnitType.SETTLER) return false;
+
+    console.log('foundCity: Founding city for player:', unit.playerId);
+    
+    // Generate city name if not provided
+    const finalCityName = cityName || this.generateCityName(unit.playerId);
+    console.log('foundCity: Final city name chosen:', finalCityName);
+
+    // Mark the city name as used by this player
+    const player = this.gameState.players.find(p => p.id === unit.playerId);
+    if (player && !player.usedCityNames.includes(finalCityName)) {
+      player.usedCityNames.push(finalCityName);
+      console.log('foundCity: Marked city name as used. Player used names now:', player.usedCityNames);
+    }
 
     // Create new city
     const city: City = {
       id: `city-${Date.now()}`,
-      name: cityName,
+      name: finalCityName,
       position: unit.position,
       population: 1,
       playerId: unit.playerId,
@@ -554,8 +696,89 @@ export class Game {
     // Remove the settler unit from the queue system as well
     this.removeUnitFromQueue(unitId);
 
+    // Play city founding sound effect
+    SoundEffects.playCityFoundingSound();
+
     this.emit('cityFounded', city);
     return true;
+  }
+
+  // Rename a city
+  public renameCity(cityId: string, newName: string): boolean {
+    const city = this.gameState.cities.find(c => c.id === cityId);
+    if (!city) return false;
+
+    const oldName = city.name;
+    city.name = newName;
+    
+    // Update the player's used city names
+    const player = this.gameState.players.find(p => p.id === city.playerId);
+    if (player) {
+      // Remove old name and add new name
+      const oldNameIndex = player.usedCityNames.indexOf(oldName);
+      if (oldNameIndex !== -1) {
+        player.usedCityNames.splice(oldNameIndex, 1);
+      }
+      if (!player.usedCityNames.includes(newName)) {
+        player.usedCityNames.push(newName);
+      }
+    }
+
+    this.emit('cityRenamed', { city, oldName, newName });
+    return true;
+  }
+
+  // Change city production
+  public changeCityProduction(cityId: string, production: string): boolean {
+    const city = this.gameState.cities.find(c => c.id === cityId);
+    if (!city) return false;
+
+    // Reset production points when changing production
+    city.production_points = 0;
+    
+    // Determine production type and set up production item
+    let productionItem: any;
+    const unitTypes = ['Settler', 'Warrior', 'Phalanx', 'Archer', 'Legion', 'Scout'];
+    const buildingTypes = ['Granary', 'Barracks', 'Library', 'Temple', 'Walls'];
+    
+    if (unitTypes.includes(production)) {
+      productionItem = {
+        type: 'unit',
+        item: production.toLowerCase(),
+        turnsRemaining: this.getProductionTime(production)
+      };
+    } else if (buildingTypes.includes(production)) {
+      productionItem = {
+        type: 'building',
+        item: production.toLowerCase(),
+        turnsRemaining: this.getProductionTime(production)
+      };
+    } else {
+      // Unknown production type
+      return false;
+    }
+
+    city.production = productionItem;
+    this.emit('cityProductionChanged', { city, production });
+    return true;
+  }
+
+  // Get production time for an item
+  private getProductionTime(item: string): number {
+    const productionTimes: { [key: string]: number } = {
+      'Settler': 4,
+      'Warrior': 2,
+      'Phalanx': 3,
+      'Archer': 3,
+      'Legion': 4,
+      'Scout': 2,
+      'Granary': 6,
+      'Barracks': 4,
+      'Library': 8,
+      'Temple': 6,
+      'Walls': 10,
+    };
+    return productionTimes[item] || 3;
   }
 
   // Attack another unit
@@ -590,8 +813,42 @@ export class Game {
     const stats = getUnitStats(unit.type);
     if (!stats.canFortify) return false;
 
-    unit.fortified = true;
+    // Get the terrain at the unit's position
+    const tile = this.gameState.worldMap[unit.position.y]?.[unit.position.x];
+    if (!tile) return false;
+
+    // Determine fortification timing based on terrain and city presence
+    const isInCity = this.isUnitInCity(unit.position);
+    const terrainType = tile.terrain;
+    const requiredTurns = isInCity ? 1 : this.getFortificationTurns(terrainType);
+
+    // Initialize fortification state
+    unit.fortificationTurns = unit.fortificationTurns || 0;
+
+    if (requiredTurns === 1) {
+      // Instant fortification (1 turn)
+      unit.fortified = true;
+      unit.fortifying = false;
+      unit.fortificationTurns = 1;
+    } else {
+      // 2-turn fortification
+      if (unit.fortificationTurns === 0) {
+        // First turn - start fortifying
+        unit.fortifying = true;
+        unit.fortified = false;
+        unit.fortificationTurns = 1;
+      } else if (unit.fortificationTurns === 1 && unit.fortifying) {
+        // Second turn - complete fortification
+        unit.fortified = true;
+        unit.fortifying = false;
+        unit.fortificationTurns = 2;
+      }
+    }
+
     unit.movementPoints = 0; // End turn when fortifying
+
+    // Remove the unit from the move queue since fortification ends the turn
+    this.removeUnitFromQueue(unitId);
 
     this.emit('unitFortified', unit);
     return true;
@@ -603,8 +860,43 @@ export class Game {
     if (!unit) return false;
 
     unit.fortified = false;
+    unit.fortifying = false;
+    unit.fortificationTurns = 0;
 
     this.emit('unitWoken', unit);
+    return true;
+  }
+
+  // Wake a unit and add it back to the move queue
+  public wakeAndActivateUnit(unitId: string): boolean {
+    const unit = this.gameState.units.find(u => u.id === unitId);
+    if (!unit) return false;
+
+    // Can only activate units belonging to current player
+    if (unit.playerId !== this.gameState.currentPlayer) return false;
+
+    // Wake the unit
+    this.wakeUnit(unitId);
+
+    // Restore movement points if it doesn't have any
+    if (unit.movementPoints <= 0) {
+      const stats = getUnitStats(unit.type);
+      unit.movementPoints = stats.movement;
+    }
+
+    // Add unit to the move queue if it's not already there
+    if (!this.unitQueue.find(u => u.id === unitId)) {
+      this.unitQueue.push(unit);
+    }
+
+    // Make this unit the current unit
+    const unitIndex = this.unitQueue.findIndex(u => u.id === unitId);
+    if (unitIndex >= 0) {
+      this.currentUnitIndex = unitIndex;
+      this.setCurrentUnit(unit);
+    }
+
+    this.emit('unitActivated', unit);
     return true;
   }
 
@@ -791,5 +1083,49 @@ export class Game {
     if (listeners) {
       listeners.forEach(callback => callback(data));
     }
+  }
+
+  // Get the number of turns required to fully fortify on a terrain type
+  private getFortificationTurns(terrainType: TerrainType): number {
+    // 1 turn fortification: city, plains, desert, grassland
+    // 2 turn fortification: forest, jungle, mountain, hills, rivers
+    switch (terrainType) {
+      case TerrainType.GRASSLAND:
+      case TerrainType.DESERT:
+        return 1;
+      case TerrainType.FOREST:
+      case TerrainType.JUNGLE:
+      case TerrainType.MOUNTAINS:
+      case TerrainType.HILLS:
+      case TerrainType.RIVER:
+        return 2;
+      default:
+        return 1; // Default to 1 turn for unknown terrain
+    }
+  }
+
+  // Check if a unit is on a city tile (which provides 1-turn fortification)
+  private isUnitInCity(unitPosition: Position): boolean {
+    const tile = this.gameState.worldMap[unitPosition.y]?.[unitPosition.x];
+    return tile?.city !== undefined;
+  }
+
+  // Get civilization information for a player
+  public getPlayerCivilization(playerId: string): Civilization | null {
+    const player = this.gameState.players.find(p => p.id === playerId);
+    if (!player) return null;
+    return getCivilization(player.civilizationType);
+  }
+
+  // Get the adjective for a player's civilization (e.g., "Roman", "American")
+  public getPlayerCivilizationAdjective(playerId: string): string {
+    const civilization = this.getPlayerCivilization(playerId);
+    return civilization ? civilization.adjective : 'Unknown';
+  }
+
+  // Get the leader name for a player's civilization
+  public getPlayerLeader(playerId: string): string {
+    const civilization = this.getPlayerCivilization(playerId);
+    return civilization ? civilization.leader : 'Unknown Leader';
   }
 }

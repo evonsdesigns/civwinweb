@@ -1,0 +1,125 @@
+<div id="city-modal" class="modal-overlay" style="display: none;">
+  <div class="city-dialog">
+    <div class="city-header">
+      <div class="city-title">
+        <span id="city-name-title">City Name</span>
+        <span id="city-population-title">(Pop: 1)</span>
+      </div>
+      <button class="city-close" id="city-close">×</button>
+    </div>
+    <div class="city-content">
+      <!-- City Map Section -->
+      <div class="city-map-section">
+        <h3>City Radius</h3>
+        <div class="city-map">
+          <canvas id="city-map-canvas" width="200" height="200"></canvas>
+        </div>
+      </div>
+      
+      <!-- City Information Section -->
+      <div class="city-info-section">
+        <h3>City Information</h3>
+        
+        <!-- Population Breakdown -->
+        <div class="population-breakdown">
+          <div class="population-title">
+            <span class="pop-icon">👥</span>
+            <span>Population: <span id="city-population">1</span></span>
+          </div>
+          <div class="population-details" id="population-details">
+            <!-- Population allocation will be inserted here -->
+          </div>
+        </div>
+        
+        <!-- Resource Display -->
+        <div class="resource-display">
+          <!-- Food Resources -->
+          <div class="resource-row food-row">
+            <div class="resource-header">
+              <span class="resource-icon">🌾</span>
+              <span class="resource-label">Food</span>
+            </div>
+            <div class="resource-value" id="food-display">
+              <span class="resource-amount" id="city-food">2</span>
+              <span class="resource-surplus" id="food-surplus"></span>
+            </div>
+          </div>
+          
+          <!-- Production Resources -->
+          <div class="resource-row production-row">
+            <div class="resource-header">
+              <span class="resource-icon">🛡️</span>
+              <span class="resource-label">Production</span>
+            </div>
+            <div class="resource-value" id="production-display">
+              <span class="resource-amount" id="city-production">1</span>
+              <span class="resource-surplus" id="production-surplus"></span>
+            </div>
+          </div>
+          
+          <!-- Trade Resources -->
+          <div class="resource-row trade-row">
+            <div class="resource-header">
+              <span class="resource-icon">➡️</span>
+              <span class="resource-label">Trade</span>
+            </div>
+            <div class="resource-value" id="trade-display">
+              <span class="resource-amount" id="city-trade">1</span>
+            </div>
+          </div>
+          
+          <!-- Trade Breakdown -->
+          <div class="trade-breakdown" id="trade-breakdown">
+            <div class="trade-item">
+              <span class="trade-icon">💎</span>
+              <span class="trade-label">Luxuries:</span>
+              <span class="trade-value" id="city-luxuries">0</span>
+            </div>
+            <div class="trade-item">
+              <span class="trade-icon">🪙</span>
+              <span class="trade-label">Tax:</span>
+              <span class="trade-value" id="city-tax">0</span>
+            </div>
+            <div class="trade-item">
+              <span class="trade-icon">💡</span>
+              <span class="trade-label">Science:</span>
+              <span class="trade-value" id="city-science">0</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Production Section -->
+      <div class="city-production-section">
+        <h3>Currently Building</h3>
+        <div class="production-item">
+          <span id="current-production">Nothing</span>
+          <span id="production-turns">(-- turns)</span>
+        </div>
+        <button class="change-production-btn" id="change-production">Change</button>
+      </div>
+      
+      <!-- Buildings Section -->
+      <div class="city-buildings-section">
+        <h3>Buildings</h3>
+        <div class="buildings-list" id="buildings-list">
+          <div class="building-item">None built yet</div>
+        </div>
+      </div>
+      
+      <!-- Units Section -->
+      <div class="city-units-section">
+        <h3>Units in City</h3>
+        <div class="units-list" id="units-list">
+          <div class="unit-item">No units present</div>
+        </div>
+      </div>
+    </div>
+    
+    <div class="city-footer">
+      <button class="city-button" id="city-rename">Rename</button>
+      <button class="city-button" id="city-buy">Buy</button>
+      <button class="city-button primary" id="city-ok">OK</button>
+    </div>
+  </div>
+</div>

@@ -6,6 +6,9 @@ export class TurnManager {
   
   // Process end of turn
   public processTurn(gameState: GameState): void {
+    // Process fortification progression for current player's units
+    this.processFortificationProgression(gameState);
+    
     // Restore movement points for current player's units
     this.restoreMovementPoints(gameState);
     
@@ -201,6 +204,23 @@ export class TurnManager {
     }
     
     return income;
+  }
+
+  // Process fortification progression for current player's units
+  private processFortificationProgression(gameState: GameState): void {
+    const currentPlayer = gameState.currentPlayer;
+    
+    gameState.units
+      .filter(unit => unit.playerId === currentPlayer)
+      .forEach(unit => {
+        // Only process units that are in the process of fortifying
+        if (unit.fortifying && unit.fortificationTurns === 1) {
+          // Complete the 2-turn fortification process
+          unit.fortified = true;
+          unit.fortifying = false;
+          unit.fortificationTurns = 2;
+        }
+      });
   }
 
   // Move to next player

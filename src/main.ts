@@ -4,10 +4,12 @@ import { Renderer } from './renderer/Renderer.js';
 import { GameRenderer } from './renderer/GameRenderer.js';
 import { UnitSprites } from './renderer/UnitSprites.js';
 import { CitySprites } from './renderer/CitySprites.js';
+import { CityView } from './renderer/CityView.js';
 import { Minimap } from './renderer/Minimap.js';
 import { Status } from './renderer/Status.js';
 import { InputHandler } from './utils/InputHandler.js';
 import { MusicPlayer } from './utils/MusicPlayer.js';
+import { UITemplateManager } from './utils/UITemplateManager.js';
 import { MapScenario, UnitType } from './types/game.js';
 
 class CivWinApp {
@@ -16,6 +18,7 @@ class CivWinApp {
   private gameRenderer: GameRenderer;
   private minimap: Minimap;
   private status: Status;
+  private cityView: CityView;
   private inputHandler: InputHandler;
   private musicPlayer: MusicPlayer;
   private canvas: HTMLCanvasElement;
@@ -40,6 +43,7 @@ class CivWinApp {
     this.gameRenderer = new GameRenderer(this.renderer);
     this.minimap = new Minimap(this.minimapCanvas, this.renderer, () => this.requestRender());
     this.status = new Status();
+    this.cityView = new CityView(this.game);
     this.musicPlayer = new MusicPlayer();
     this.inputHandler = new InputHandler(
       this.game, 
@@ -48,7 +52,8 @@ class CivWinApp {
       this.canvas,
       () => this.requestRender(),
       () => this.minimap.toggle(),
-      this.status
+      this.status,
+      this.cityView
     );
 
     /** Setup game event listeners BEFORE initializing the game */
@@ -107,6 +112,21 @@ class CivWinApp {
       this.status.setEndOfTurnState(false);
       this.updateUI();
       this.requestRender();
+    });
+
+    this.game.on('aiTurnStarted', (data: any) => {
+      console.log('AI turn started', data);
+      this.handleAITurnStarted(data);
+    });
+
+    this.game.on('aiTurnEnded', (data: any) => {
+      console.log('AI turn ended', data);
+      this.handleAITurnEnded(data);
+    });
+
+    this.game.on('humanTurnStarted', (data: any) => {
+      console.log('Human turn started', data);
+      this.handleHumanTurnStarted(data);
     });
 
     this.game.on('unitMoved', (data: any) => {
@@ -449,10 +469,76 @@ class CivWinApp {
     }
   }
 
+  // Check if a world position is visible in the current viewport
+  private isUnitPositionVisible(worldX: number, worldY: number): boolean {
+    const visibleRange = this.renderer.getVisibleTileRange();
+    const gameState = this.game.getGameState();
+    const mapWidth = gameState.worldMap[0]?.length || 80;
+    
+    // Handle horizontal wrapping for X coordinate
+    const normalizedX = ((worldX % mapWidth) + mapWidth) % mapWidth;
+    
+    // Check if X is within visible range (considering wrapping)
+    let xVisible = false;
+    if (visibleRange.startX >= 0 && visibleRange.endX <= mapWidth) {
+      // Normal case - no wrapping in visible range
+      xVisible = normalizedX >= visibleRange.startX && normalizedX <= visibleRange.endX;
+    } else {
+      // Visible range wraps around the map edge
+      const wrappedStartX = ((visibleRange.startX % mapWidth) + mapWidth) % mapWidth;
+      const wrappedEndX = ((visibleRange.endX % mapWidth) + mapWidth) % mapWidth;
+      
+      if (wrappedStartX <= wrappedEndX) {
+        xVisible = normalizedX >= wrappedStartX && normalizedX <= wrappedEndX;
+      } else {
+        // Range crosses the wrap boundary
+        xVisible = normalizedX >= wrappedStartX || normalizedX <= wrappedEndX;
+      }
+    }
+    
+    // Check if Y is within visible range (no wrapping for Y)
+    const yVisible = worldY >= visibleRange.startY && worldY <= visibleRange.endY;
+    
+    return xVisible && yVisible;
+  }
+
   // Handle canvas resizing
   private handleResize(): void {
     const rect = this.canvas.getBoundingClientRect();
     this.renderer.resize(rect.width, rect.height);
+    this.requestRender();
+  }
+
+  // Handle AI turn start
+  private handleAITurnStarted(data: { playerId: string, playerName: string }): void {
+    console.log(`AI Player ${data.playerName} (${data.playerId}) turn started`);
+    // Update the status window to show AI turn message
+    this.status.showAIPlayerMessage();
+    this.requestRender();
+  }
+
+  // Handle AI turn end
+  private handleAITurnEnded(data: { playerId: string, playerName: string }): void {
+    console.log(`AI Player ${data.playerName} (${data.playerId}) turn ended`);
+    
+    // Update game state in status window to reflect the new current player
+    this.status.updateGameState(this.game.getGameState());
+    
+    this.updateUI();
+    this.requestRender();
+  }
+
+  // Handle human turn start
+  private handleHumanTurnStarted(data: { playerId: string }): void {
+    console.log(`Human player turn started: ${data.playerId}`);
+    
+    // Update game state in status window to ensure it knows we're now in human turn
+    this.status.updateGameState(this.game.getGameState());
+    
+    // Clear end of turn state if it was set
+    this.status.setEndOfTurnState(false);
+    
+    this.updateUI();
     this.requestRender();
   }
 
@@ -463,8 +549,10 @@ class CivWinApp {
     // Select the unit in the game renderer
     this.gameRenderer.selectUnit(unit);
     
-    // Center camera on the unit
-    this.renderer.centerOn(unit.position.x, unit.position.y);
+    // Only center camera if the unit is outside the current viewport
+    if (!this.isUnitPositionVisible(unit.position.x, unit.position.y)) {
+      this.renderer.centerOn(unit.position.x, unit.position.y);
+    }
     
     // Update status window
     this.status.setSelectedUnit(unit);
@@ -496,7 +584,6 @@ class CivWinApp {
 
   // Request a render on the next frame
   public requestRender(): void {
-    console.log('Render requested');
     requestAnimationFrame(() => this.render());
   }
 
@@ -506,8 +593,6 @@ class CivWinApp {
 
   // Render the game (only when needed)
   private render(): void {
-    console.debug('Render called');
-
     const gameState = this.game.getGameState();
     console.debug('Rendering game state:', {
       worldMapSize: `${gameState.worldMap.length}x${gameState.worldMap[0]?.length || 0}`,
@@ -520,10 +605,32 @@ class CivWinApp {
   }
 }
 
-document.addEventListener('DOMContentLoaded', () => {
-  const app = new CivWinApp();
-  app.start();
+document.addEventListener('DOMContentLoaded', async () => {
+  try {
+    // Load UI templates first
+    const templateManager = UITemplateManager.getInstance();
+    await templateManager.loadAllTemplates();
+    
+    // Initialize the app after templates are loaded
+    const app = new CivWinApp();
+    app.start();
 
-  // Make app globally accessible for debugging
-  (window as any).civWinApp = app;
+    // Make app globally accessible for debugging
+    (window as any).civWinApp = app;
+  } catch (error) {
+    console.error('Failed to initialize application:', error);
+    // Show user-friendly error message
+    document.body.innerHTML = `
+      <div style="display: flex; justify-content: center; align-items: center; height: 100vh; background: #1a1a1a; color: white; font-family: Arial, sans-serif;">
+        <div style="text-align: center; max-width: 500px; padding: 20px;">
+          <h1>🚧 Loading Error</h1>
+          <p>Failed to load game templates. Please refresh the page to try again.</p>
+          <p style="font-size: 12px; color: #888; margin-top: 20px;">Error: ${error instanceof Error ? error.message : 'Unknown error'}</p>
+          <button onclick="window.location.reload()" style="margin-top: 20px; padding: 10px 20px; background: #0078d4; color: white; border: none; border-radius: 4px; cursor: pointer;">
+            Refresh Page
+          </button>
+        </div>
+      </div>
+    `;
+  }
 });

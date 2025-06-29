@@ -144,3 +144,28 @@ This project is open source and available under the MIT License.
 ## Contributing
 
 Contributions are welcome! Please feel free to submit issues and pull requests.
+
+## Enhanced City Dialog
+
+The city dialog now features a detailed Civilization 1-style interface with:
+
+### Visual Design
+- **Pastel civilization color backgrounds** - Each civilization's cities have subtle color-themed backgrounds
+- **Resource icons** - Visual representation with wheat (🌾), shields (🛡️), and trade arrows (➡️)
+- **Surplus/deficit indicators** - Color-coded displays showing positive (green), negative (red), or neutral (gray) resource flow
+
+### City Information Display
+- **Population breakdown** - Visual representation of population allocation with worker icons
+- **Detailed resource calculations** - Enhanced food, production, and trade calculations
+- **Trade breakdown** - Split into:
+  - Luxuries (💎) - Improves happiness
+  - Tax (🪙) - Generates gold income  
+  - Science (💡) - Contributes to research
+
+### Interactive Features
+- **City renaming** - Click "Rename" to change city names
+- **Production management** - Change what the city is building
+- **Visual city radius** - See the tiles your city works
+- **Unit management** - View units stationed in the city
+
+The dialog automatically adapts to show each civilization's unique visual theme while maintaining the classic Civilization 1 aesthetic.

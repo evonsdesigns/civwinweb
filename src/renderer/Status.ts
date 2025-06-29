@@ -67,12 +67,22 @@ export class Status {
   }
 
   public setSelectedUnit(unit: Unit | null): void {
+    // Only allow unit selection for human players
+    if (unit && !this.isCurrentPlayerHuman()) {
+      return;
+    }
+    
     this.selectedUnit = unit;
     this.selectedCity = null; // Clear city selection when unit is selected
     this.updateDisplay();
   }
 
   public setSelectedCity(city: City | null): void {
+    // Only allow city selection for human players
+    if (city && !this.isCurrentPlayerHuman()) {
+      return;
+    }
+    
     this.selectedCity = city;
     this.selectedUnit = null; // Clear unit selection when city is selected
     this.updateDisplay();
@@ -140,9 +150,15 @@ export class Status {
   private updateDisplay(): void {
     if (!this.gameState || !this.isVisible) return;
 
-    this.updatePopulationInfo();
-    this.updateTechProgress();
-    this.updateUnitDetails();
+    // Only show information for human players
+    if (this.isCurrentPlayerHuman()) {
+      this.updatePopulationInfo();
+      this.updateTechProgress();
+      this.updateUnitDetails();
+    } else {
+      // Clear display for AI players
+      this.showAIPlayerMessage();
+    }
   }
 
   private updatePopulationInfo(): void {
@@ -274,6 +290,8 @@ export class Status {
       if (unitFortificationElement) {
         if (this.selectedUnit.fortified) {
           unitFortificationElement.textContent = '(Fortified)';
+        } else if (this.selectedUnit.fortifying) {
+          unitFortificationElement.textContent = '(Fortifying)';
         } else {
           unitFortificationElement.textContent = '(Irrigation)'; // Placeholder
         }
@@ -310,6 +328,49 @@ export class Status {
   private getCurrentPlayer(): Player | null {
     if (!this.gameState) return null;
     return this.gameState.players.find(p => p.id === this.gameState!.currentPlayer) || null;
+  }
+
+  private isCurrentPlayerHuman(): boolean {
+    const currentPlayer = this.getCurrentPlayer();
+    return currentPlayer ? currentPlayer.isHuman : false;
+  }
+
+  public showAIPlayerMessage(): void {
+    // Clear all fields and show AI player message
+    this.clearPopulationInfo();
+    this.clearTechProgress();
+    this.clearUnitDetails();
+    
+    // Show AI player message in the unit name field
+    const unitNameElement = document.getElementById('unit-name');
+    if (unitNameElement) {
+      const currentPlayer = this.getCurrentPlayer();
+      const playerName = currentPlayer ? currentPlayer.name : 'AI Player';
+      unitNameElement.innerHTML = `<span class="ai-turn-message">${playerName} Turn</span>`;
+    }
+  }
+
+  private clearPopulationInfo(): void {
+    const populationElement = document.getElementById('status-population');
+    const yearElement = document.getElementById('status-year');
+    const goldElement = document.getElementById('status-gold');
+    
+    if (populationElement) populationElement.textContent = '';
+    if (yearElement) yearElement.textContent = '';
+    if (goldElement) goldElement.textContent = '';
+  }
+
+  private clearTechProgress(): void {
+    const lightbulb = document.getElementById('tech-lightbulb');
+    const techName = document.getElementById('tech-name');
+    const techTurns = document.getElementById('tech-turns');
+
+    if (lightbulb) {
+      lightbulb.className = lightbulb.className.replace(/\bturns-\d+(-plus)?\b/g, '');
+      lightbulb.classList.remove('bright');
+    }
+    if (techName) techName.textContent = '';
+    if (techTurns) techTurns.textContent = '';
   }
 
   public show(): void {

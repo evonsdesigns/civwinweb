@@ -179,8 +179,16 @@ export class GameRenderer {
       }
     }
     
-    // Use the new CitySprites system
-    const citySprite = CitySprites.getCitySprite(playerColor, tileSize);
+    // Check if there are any units at the city position
+    let hasUnits = false;
+    if (gameState) {
+      hasUnits = gameState.units.some(unit => 
+        unit.position.x === city.position.x && unit.position.y === city.position.y
+      );
+    }
+    
+    // Use the new CitySprites system with population and unit presence
+    const citySprite = CitySprites.getCitySprite(playerColor, tileSize, city.population, hasUnits);
     if (citySprite) {
       // Draw the city sprite
       const ctx = this.renderer.getContext();
@@ -478,15 +486,28 @@ export class GameRenderer {
   }
 
   // Render fortification indicator
-  private renderFortificationIndicator(screenPos: {x: number, y: number}, tileSize: number): void {
-    this.renderer.strokeRect(
-      screenPos.x + 2,
-      screenPos.y + 2,
-      tileSize - 4,
-      tileSize - 4,
-      '#8BC34A',
-      2
-    );
+  private renderFortificationIndicator(screenPos: {x: number, y: number}, tileSize: number, unit: Unit): void {
+    if (unit.fortifying) {
+      // Show "F" for units in the process of fortifying (first turn of 2-turn fortification)
+      this.renderer.fillText(
+        'F',
+        screenPos.x + tileSize - 8,
+        screenPos.y + tileSize - 8,
+        '#FFFF00',
+        '12px Arial',
+        'center'
+      );
+    } else if (unit.fortified) {
+      // Show dark border for fully fortified units
+      this.renderer.strokeRect(
+        screenPos.x + 2,
+        screenPos.y + 2,
+        tileSize - 4,
+        tileSize - 4,
+        '#333333',
+        3
+      );
+    }
   }
 
   // Render health bar
@@ -600,6 +621,10 @@ export class GameRenderer {
   private shouldRenderUnit(unit: Unit): boolean {
     // If this is the selected unit and blinking is enabled, check blink state
     if (this.selectedUnit && this.selectedUnit.id === unit.id) {
+      // Fortified or fortifying units should never blink
+      if (unit.fortified || unit.fortifying) {
+        return true; // Always render fortified units (no blinking)
+      }
       return this.blinkState;
     }
     // Always render non-selected units
@@ -664,8 +689,8 @@ export class GameRenderer {
     }
     
     // Fortification indicator
-    if (unit.fortified) {
-      this.renderFortificationIndicator(screenPos, tileSize);
+    if (unit.fortified || unit.fortifying) {
+      this.renderFortificationIndicator(screenPos, tileSize, unit);
     }
     
     // Health bar

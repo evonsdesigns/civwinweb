@@ -13,6 +13,8 @@ export abstract class BaseUnit implements Unit {
   experience: number;
   isVeteran: boolean;
   fortified: boolean;
+  fortifying?: boolean;
+  fortificationTurns?: number;
 
   constructor(
     id: string,
@@ -27,6 +29,8 @@ export abstract class BaseUnit implements Unit {
     this.experience = 0;
     this.isVeteran = false;
     this.fortified = false;
+    this.fortifying = false;
+    this.fortificationTurns = 0;
     this.health = 100;
     this.maxHealth = 100;
 
@@ -54,12 +58,16 @@ export abstract class BaseUnit implements Unit {
   fortify(): void {
     if (getUnitStats(this.type).canFortify) {
       this.fortified = true;
+      this.fortifying = false;
+      this.fortificationTurns = 1; // Default to 1 turn for basic fortify
       this.movementPoints = 0; // End turn when fortifying
     }
   }
 
   unfortify(): void {
     this.fortified = false;
+    this.fortifying = false;
+    this.fortificationTurns = 0;
   }
 
   restoreMovementPoints(): void {
