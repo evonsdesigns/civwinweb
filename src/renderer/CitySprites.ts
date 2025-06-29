@@ -2,7 +2,7 @@ import { City } from '../types/game.js';
 
 /**
  * City sprite management system for handling city graphics with player-specific recoloring.
- * Creates grid-like building structures that match the player's color.
+ * Creates simple single-block city structures that match the player's color.
  */
 export class CitySprites {
   private static spriteCache = new Map<string, HTMLCanvasElement>();
@@ -41,7 +41,7 @@ export class CitySprites {
   }
 
   /**
-   * Create a grid-like city sprite with player color
+   * Create a single block city sprite with player color
    */
   private static createCitySprite(
     playerColor: string, 
@@ -59,98 +59,72 @@ export class CitySprites {
       return canvas;
     }
 
-    // Calculate grid dimensions
-    const padding = Math.max(2, Math.floor(tileSize * 0.1));
-    const citySize = tileSize - (padding * 2);
-    const cellSize = Math.max(2, Math.floor(citySize / 6)); // 6x6 grid approximately
-    const gridSize = cellSize * 6;
+    // Calculate city block dimensions - fill the entire tile
+    const blockSize = tileSize;
     
-    // Center the grid
-    const startX = padding + Math.floor((citySize - gridSize) / 2);
-    const startY = padding + Math.floor((citySize - gridSize) / 2);
+    // Start at tile origin
+    const startX = 0;
+    const startY = 0;
 
-    // Create building grid pattern similar to your image
-    this.drawCityGrid(ctx, startX, startY, cellSize, color);
+    // Create single block city
+    this.drawCityBlock(ctx, startX, startY, blockSize, color);
 
     return canvas;
   }
 
   /**
-   * Draw the city grid pattern
+   * Draw a single city block
    */
-  private static drawCityGrid(
+  private static drawCityBlock(
     ctx: CanvasRenderingContext2D, 
     startX: number, 
     startY: number, 
-    cellSize: number, 
+    blockSize: number, 
     color: { r: number; g: number; b: number }
   ): void {
-    // Define which cells should be "buildings" (filled)
-    // This creates a pattern similar to your green grid image
-    const buildingPattern = [
-      [1, 1, 0, 0, 1, 1],
-      [1, 1, 0, 0, 1, 1],
-      [0, 0, 0, 0, 0, 0], // Street/road
-      [0, 0, 0, 0, 0, 0], // Street/road
-      [1, 1, 0, 0, 1, 1],
-      [1, 1, 0, 0, 1, 1]
-    ];
+    // Create color variations
+    const baseColor = `rgb(${color.r}, ${color.g}, ${color.b})`;
+    const highlightColor = `rgb(${Math.min(255, color.r + 30)}, ${Math.min(255, color.g + 30)}, ${Math.min(255, color.b + 30)})`;
+    const shadowColor = `rgb(${Math.floor(color.r * 0.7)}, ${Math.floor(color.g * 0.7)}, ${Math.floor(color.b * 0.7)})`;
+    const darkShadowColor = `rgb(${Math.floor(color.r * 0.5)}, ${Math.floor(color.g * 0.5)}, ${Math.floor(color.b * 0.5)})`;
 
-    // Base city color (slightly darker than player color)
-    const baseColor = `rgb(${Math.floor(color.r * 0.8)}, ${Math.floor(color.g * 0.8)}, ${Math.floor(color.b * 0.8)})`;
-    const buildingColor = `rgb(${color.r}, ${color.g}, ${color.b})`;
-    const highlightColor = `rgb(${Math.min(255, color.r + 40)}, ${Math.min(255, color.g + 40)}, ${Math.min(255, color.b + 40)})`;
-    const shadowColor = `rgb(${Math.floor(color.r * 0.6)}, ${Math.floor(color.g * 0.6)}, ${Math.floor(color.b * 0.6)})`;
-
-    // Draw background
+    // Draw main city block
     ctx.fillStyle = baseColor;
-    ctx.fillRect(startX, startY, cellSize * 6, cellSize * 6);
+    ctx.fillRect(startX, startY, blockSize, blockSize);
 
-    // Draw buildings and streets
-    for (let row = 0; row < 6; row++) {
-      for (let col = 0; col < 6; col++) {
-        const x = startX + col * cellSize;
-        const y = startY + row * cellSize;
+    // Add 3D effect with highlights and shadows
+    const borderSize = Math.max(1, Math.floor(blockSize * 0.1));
+    
+    // Top and left highlights
+    ctx.fillStyle = highlightColor;
+    ctx.fillRect(startX, startY, blockSize, borderSize); // Top
+    ctx.fillRect(startX, startY, borderSize, blockSize); // Left
 
-        if (buildingPattern[row][col] === 1) {
-          // Draw building
-          ctx.fillStyle = buildingColor;
-          ctx.fillRect(x, y, cellSize, cellSize);
+    // Bottom and right shadows
+    ctx.fillStyle = shadowColor;
+    ctx.fillRect(startX, startY + blockSize - borderSize, blockSize, borderSize); // Bottom
+    ctx.fillRect(startX + blockSize - borderSize, startY, borderSize, blockSize); // Right
 
-          // Add building details (windows/structure)
-          if (cellSize >= 4) {
-            // Add highlight on top-left
-            ctx.fillStyle = highlightColor;
-            ctx.fillRect(x, y, Math.max(1, Math.floor(cellSize / 3)), 1);
-            ctx.fillRect(x, y, 1, Math.max(1, Math.floor(cellSize / 3)));
+    // Add prominent black border
+    ctx.strokeStyle = 'black';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(startX, startY, blockSize, blockSize);
 
-            // Add shadow on bottom-right
-            ctx.fillStyle = shadowColor;
-            ctx.fillRect(x + cellSize - 1, y + Math.floor(cellSize / 2), 1, Math.ceil(cellSize / 2));
-            ctx.fillRect(x + Math.floor(cellSize / 2), y + cellSize - 1, Math.ceil(cellSize / 2), 1);
-
-            // Add window details if cell is large enough
-            if (cellSize >= 6) {
-              ctx.fillStyle = shadowColor;
-              const windowSize = Math.max(1, Math.floor(cellSize / 4));
-              const windowX = x + Math.floor(cellSize / 2) - Math.floor(windowSize / 2);
-              const windowY = y + Math.floor(cellSize / 2) - Math.floor(windowSize / 2);
-              ctx.fillRect(windowX, windowY, windowSize, windowSize);
-            }
-          }
-        } else {
-          // Draw street/empty space
-          const streetColor = `rgb(${Math.floor(color.r * 0.4)}, ${Math.floor(color.g * 0.4)}, ${Math.floor(color.b * 0.4)})`;
-          ctx.fillStyle = streetColor;
-          ctx.fillRect(x, y, cellSize, cellSize);
-        }
-      }
+    // Add simple detail in the center (like a building or monument)
+    if (blockSize >= 12) {
+      const detailSize = Math.floor(blockSize * 0.3);
+      const detailX = startX + Math.floor((blockSize - detailSize) / 2);
+      const detailY = startY + Math.floor((blockSize - detailSize) / 2);
+      
+      // Central structure
+      ctx.fillStyle = highlightColor;
+      ctx.fillRect(detailX, detailY, detailSize, detailSize);
+      
+      // Add small shadow to the detail
+      ctx.fillStyle = shadowColor;
+      ctx.fillRect(detailX + detailSize - 1, detailY + 2, 1, detailSize - 2);
+      ctx.fillRect(detailX + 2, detailY + detailSize - 1, detailSize - 2, 1);
     }
-
-    // Add border around the entire city
-    ctx.strokeStyle = shadowColor;
-    ctx.lineWidth = 1;
-    ctx.strokeRect(startX, startY, cellSize * 6, cellSize * 6);
   }
 
   /**

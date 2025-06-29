@@ -394,9 +394,7 @@ export class InputHandler {
     const currentUnit = this.game.getCurrentUnit();
     
     if (!currentUnit) {
-      // No unit selected, fall back to moving the camera
-      this.renderer.moveViewport(deltaX, deltaY);
-      this.requestRender();
+      // No unit selected, do nothing
       return;
     }
 
@@ -424,8 +422,10 @@ export class InputHandler {
     const success = this.game.moveUnit(currentUnit.id, newPosition);
     
     if (success) {
-      // Update renderer to follow the unit
-      this.renderer.centerOn(newPosition.x, newPosition.y);
+      // Only center camera if the unit moved outside the current viewport
+      if (!this.isPositionVisible(newPosition.x, newPosition.y)) {
+        this.renderer.centerOn(newPosition.x, newPosition.y);
+      }
       this.requestRender();
     }
     
@@ -447,5 +447,38 @@ export class InputHandler {
     y = Math.max(0, Math.min(y, mapHeight - 1));
 
     return { x, y };
+  }
+
+  // Check if a world position is visible in the current viewport
+  private isPositionVisible(worldX: number, worldY: number): boolean {
+    const visibleRange = this.renderer.getVisibleTileRange();
+    const gameState = this.game.getGameState();
+    const mapWidth = gameState.worldMap[0]?.length || 80;
+    
+    // Handle horizontal wrapping for X coordinate
+    const normalizedX = ((worldX % mapWidth) + mapWidth) % mapWidth;
+    
+    // Check if X is within visible range (considering wrapping)
+    let xVisible = false;
+    if (visibleRange.startX >= 0 && visibleRange.endX <= mapWidth) {
+      // Normal case - no wrapping in visible range
+      xVisible = normalizedX >= visibleRange.startX && normalizedX <= visibleRange.endX;
+    } else {
+      // Visible range wraps around the map edge
+      const wrappedStartX = ((visibleRange.startX % mapWidth) + mapWidth) % mapWidth;
+      const wrappedEndX = ((visibleRange.endX % mapWidth) + mapWidth) % mapWidth;
+      
+      if (wrappedStartX <= wrappedEndX) {
+        xVisible = normalizedX >= wrappedStartX && normalizedX <= wrappedEndX;
+      } else {
+        // Range crosses the wrap boundary
+        xVisible = normalizedX >= wrappedStartX || normalizedX <= wrappedEndX;
+      }
+    }
+    
+    // Check if Y is within visible range (no wrapping for Y)
+    const yVisible = worldY >= visibleRange.startY && worldY <= visibleRange.endY;
+    
+    return xVisible && yVisible;
   }
 }

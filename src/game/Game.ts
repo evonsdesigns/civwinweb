@@ -418,6 +418,16 @@ export class Game {
     const tile = this.gameState.worldMap[position.y]?.[position.x];
     if (!tile) return false;
 
+    // First, check if there's a city at the target position
+    const cityAtPosition = this.gameState.cities.find(city => 
+      city.position.x === position.x && city.position.y === position.y
+    );
+
+    // If there's a city and the unit belongs to the same player, allow movement
+    if (cityAtPosition && cityAtPosition.playerId === unit.playerId) {
+      return true;
+    }
+
     // Get unit stats to determine category
     const unitStats = getUnitStats(unit.type);
     const targetTerrain = tile.terrain;
@@ -538,8 +548,11 @@ export class Game {
 
     this.gameState.cities.push(city);
     
-    // Remove the settler unit
+    // Remove the settler unit from game state
     this.gameState.units = this.gameState.units.filter((u: Unit) => u.id !== unitId);
+    
+    // Remove the settler unit from the queue system as well
+    this.removeUnitFromQueue(unitId);
 
     this.emit('cityFounded', city);
     return true;
