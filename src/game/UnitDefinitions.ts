@@ -391,6 +391,11 @@ export function getUnitStats(unitType: UnitType): UnitStats {
   return UNIT_DEFINITIONS[unitType];
 }
 
+export function getUnitName(unitType: UnitType): string {
+  // Convert enum value to display name
+  return unitType.charAt(0).toUpperCase() + unitType.slice(1).replace(/_/g, ' ');
+}
+
 export function getUnitsByCategory(category: UnitCategory): UnitType[] {
   return Object.entries(UNIT_DEFINITIONS)
     .filter(([_, stats]) => stats.category === category)

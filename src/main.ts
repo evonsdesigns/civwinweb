@@ -3,6 +3,7 @@ import { Game } from './game/Game.js';
 import { Renderer } from './renderer/Renderer.js';
 import { GameRenderer } from './renderer/GameRenderer.js';
 import { Minimap } from './renderer/Minimap.js';
+import { Status } from './renderer/Status.js';
 import { InputHandler } from './utils/InputHandler.js';
 import { MapScenario } from './types/game.js';
 
@@ -11,6 +12,7 @@ class CivWinApp {
   private renderer: Renderer;
   private gameRenderer: GameRenderer;
   private minimap: Minimap;
+  private status: Status;
   private inputHandler: InputHandler;
   private canvas: HTMLCanvasElement;
   private minimapCanvas: HTMLCanvasElement;
@@ -33,13 +35,15 @@ class CivWinApp {
     this.renderer = new Renderer(this.canvas);
     this.gameRenderer = new GameRenderer(this.renderer);
     this.minimap = new Minimap(this.minimapCanvas, this.renderer, () => this.requestRender());
+    this.status = new Status();
     this.inputHandler = new InputHandler(
       this.game, 
       this.gameRenderer, 
       this.renderer, 
       this.canvas,
       () => this.requestRender(),
-      () => this.minimap.toggle()
+      () => this.minimap.toggle(),
+      this.status
     );
 
     // Setup game event listeners BEFORE initializing the game
@@ -427,6 +431,7 @@ class CivWinApp {
     });
     this.gameRenderer.render(gameState);
     this.minimap.updateGameState(gameState);
+    this.status.updateGameState(gameState);
   }
 }
 

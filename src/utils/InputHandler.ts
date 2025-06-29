@@ -1,6 +1,7 @@
 import { Game } from '../game/Game.js';
 import { GameRenderer } from '../renderer/GameRenderer.js';
 import { Renderer } from '../renderer/Renderer.js';
+import { Status } from '../renderer/Status.js';
 
 export class InputHandler {
   private game: Game;
@@ -9,6 +10,7 @@ export class InputHandler {
   private canvas: HTMLCanvasElement;
   private requestRender: () => void;
   private minimapToggle?: () => void;
+  private status?: Status;
   private isDragging = false;
   private lastMousePos = { x: 0, y: 0 };
   private dragStartPos = { x: 0, y: 0 };
@@ -19,7 +21,8 @@ export class InputHandler {
     renderer: Renderer, 
     canvas: HTMLCanvasElement, 
     requestRender: () => void,
-    minimapToggle?: () => void
+    minimapToggle?: () => void,
+    status?: Status
   ) {
     this.game = game;
     this.gameRenderer = gameRenderer;
@@ -27,6 +30,7 @@ export class InputHandler {
     this.canvas = canvas;
     this.requestRender = requestRender;
     this.minimapToggle = minimapToggle;
+    this.status = status;
     
     this.setupEventListeners();
     this.updateMapDimensions();
@@ -180,6 +184,12 @@ export class InputHandler {
       // Select the unit
       this.gameRenderer.selectUnit(clickedUnit);
       this.gameRenderer.selectTile(worldPos.x, worldPos.y);
+      
+      // Notify Status window of unit selection
+      if (this.status) {
+        this.status.setSelectedUnit(clickedUnit);
+      }
+      
       this.requestRender();
     } else {
       // Check if we have a unit selected and are trying to move it
@@ -195,6 +205,12 @@ export class InputHandler {
         // Just select the tile
         this.gameRenderer.selectTile(worldPos.x, worldPos.y);
         this.gameRenderer.clearSelections();
+        
+        // Clear Status window selection
+        if (this.status) {
+          this.status.setSelectedUnit(null);
+        }
+        
         this.requestRender();
       }
     }
