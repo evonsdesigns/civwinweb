@@ -198,7 +198,7 @@ body {
   gap: 10px;
   margin-left: auto;
   padding: 2px 8px;
-  background: #f8f8f8;
+  background: #c0c0c0;
   border: 1px inset #c0c0c0;
   border-radius: 2px;
   font-size: 10px;
@@ -264,7 +264,7 @@ body {
   top: 100%;
   left: 50%;
   transform: translateX(-50%);
-  background: #f8f8f8;
+  background: #c0c0c0;
   border: 1px outset #c0c0c0;
   border-radius: 2px;
   padding: 8px;

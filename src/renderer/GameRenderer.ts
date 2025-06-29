@@ -2,6 +2,7 @@ import { GameState, Tile, Unit, City, TerrainType, UnitType, UnitCategory } from
 import { Renderer } from './Renderer';
 import { TerrainManager } from '../terrain/index';
 import { UnitSprites } from './UnitSprites';
+import { CitySprites } from './CitySprites';
 import { ConnectionMask, ConnectionPattern } from '../types/terrain';
 import { getUnitStats } from '../game/UnitDefinitions';
 
@@ -32,7 +33,7 @@ export class GameRenderer {
     this.renderMap(gameState.worldMap);
     
     // Render cities
-    this.renderCities(gameState.cities);
+    this.renderCities(gameState.cities, gameState);
     
     // Render units
     this.renderUnits(gameState.units, gameState);
@@ -159,32 +160,49 @@ export class GameRenderer {
   }
 
   // Render all cities
-  private renderCities(cities: City[]): void {
-    cities.forEach(city => this.renderCity(city));
+  private renderCities(cities: City[], gameState: GameState): void {
+    cities.forEach(city => this.renderCity(city, gameState));
   }
 
   // Render a single city
-  private renderCity(city: City): void {
+  private renderCity(city: City, gameState?: GameState): void {
     const screenPos = this.renderer.worldToScreen(city.position.x, city.position.y);
     const renderContext = this.renderer.getRenderContext();
     const tileSize = renderContext.tileSize;
     
-    // City icon
-    this.renderer.fillRect(
-      screenPos.x + tileSize / 4,
-      screenPos.y + tileSize / 4,
-      tileSize / 2,
-      tileSize / 2,
-      '#8B4513'
-    );
+    // Try to get player color for the city
+    let playerColor = '#8B4513'; // Default brown color as fallback
+    if (gameState) {
+      const player = gameState.players.find(p => p.id === city.playerId);
+      if (player) {
+        playerColor = player.color;
+      }
+    }
     
-    // City name
+    // Use the new CitySprites system
+    const citySprite = CitySprites.getCitySprite(playerColor, tileSize);
+    if (citySprite) {
+      // Draw the city sprite
+      const ctx = this.renderer.getContext();
+      ctx.drawImage(citySprite, screenPos.x, screenPos.y, tileSize, tileSize);
+    } else {
+      // Fallback to simple rectangle if sprite creation fails
+      this.renderer.fillRect(
+        screenPos.x + tileSize / 4,
+        screenPos.y + tileSize / 4,
+        tileSize / 2,
+        tileSize / 2,
+        playerColor
+      );
+    }
+    
+    // City name - render below the city
     this.renderer.fillText(
       city.name,
       screenPos.x + tileSize / 2,
-      screenPos.y - 5,
+      screenPos.y + tileSize + 15,
       '#FFFFFF',
-      '12px Arial',
+      '12px Civilization, MS Sans Serif, sans-serif',
       'center'
     );
   }

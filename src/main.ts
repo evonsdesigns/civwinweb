@@ -3,6 +3,7 @@ import { Game } from './game/Game.js';
 import { Renderer } from './renderer/Renderer.js';
 import { GameRenderer } from './renderer/GameRenderer.js';
 import { UnitSprites } from './renderer/UnitSprites.js';
+import { CitySprites } from './renderer/CitySprites.js';
 import { Minimap } from './renderer/Minimap.js';
 import { Status } from './renderer/Status.js';
 import { InputHandler } from './utils/InputHandler.js';
@@ -96,8 +97,8 @@ class CivWinApp {
       this.updateUI();
       this.requestRender();
       
-      /** Preload unit sprites for all players */
-      this.preloadUnitSprites(gameState);
+      /** Preload unit and city sprites for all players */
+      this.preloadSprites(gameState);
     });
 
     this.game.on('turnEnded', (gameState: any) => {
@@ -395,8 +396,8 @@ class CivWinApp {
     });
   }
 
-  // Preload unit sprites for better performance
-  private async preloadUnitSprites(gameState: any): Promise<void> {
+  // Preload unit and city sprites for better performance
+  private async preloadSprites(gameState: any): Promise<void> {
     try {
       // Extract player colors from game state
       const playerColors = gameState.players.map((player: any) => player.color);
@@ -404,12 +405,15 @@ class CivWinApp {
       // Define unit types that have custom sprites
       const unitTypesWithSprites = [UnitType.SETTLER];
       
-      // Preload sprites for all player colors and unit types
+      // Preload unit sprites for all player colors and unit types
       await UnitSprites.preloadSprites(unitTypesWithSprites, playerColors, 48);
       
-      console.log('Unit sprites preloaded successfully');
+      // Preload city sprites for all player colors
+      await CitySprites.preloadSprites(playerColors, 48);
+      
+      console.log('Unit and city sprites preloaded successfully');
     } catch (error) {
-      console.warn('Failed to preload unit sprites:', error);
+      console.warn('Failed to preload sprites:', error);
     }
   }
 
