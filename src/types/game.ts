@@ -72,6 +72,7 @@ export interface Unit {
   fortified: boolean;
   fortifying?: boolean; // True if unit is in the process of fortifying (first turn of 2-turn fortification)
   fortificationTurns?: number; // How many turns of fortification have been completed
+  sleeping?: boolean; // True if unit is sleeping (skips turns until manually awakened)
 }
 
 export const UnitCategory = {
@@ -93,6 +94,8 @@ export interface UnitStats {
   canFortify: boolean;
   canCarryUnits?: number; // For naval/air transport units
   visibility?: number; // For naval/air units with extended vision
+  canMoveOnWater?: boolean; // For naval units that can move on ocean tiles
+  canMoveOnMountains?: boolean; // For units that can move on mountain tiles
   specialAbilities?: string[];
 }
 

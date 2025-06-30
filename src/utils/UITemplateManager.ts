@@ -34,6 +34,8 @@ export class UITemplateManager {
         this.loadTemplate(container, '/templates/status-window.html'),
         this.loadTemplate(container, '/templates/scenario-modal.html'),
         this.loadTemplate(container, '/templates/city-modal.html'),
+        this.loadTemplate(container, '/templates/settings-modal.html'),
+        this.loadTemplate(container, '/templates/technology-selection-modal.html'),
       ];
 
       await Promise.all(templatePromises);

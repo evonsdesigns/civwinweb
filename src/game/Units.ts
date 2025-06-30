@@ -101,7 +101,7 @@ export abstract class BaseUnit implements Unit {
 
 // Land unit class
 export class LandUnit extends BaseUnit {
-  canMoveTo(position: Position): boolean {
+  canMoveTo(_position: Position): boolean {
     // Land units can move to land tiles (implementation depends on terrain system)
     // For now, just check if movement points are available
     return this.movementPoints > 0;
@@ -125,7 +125,7 @@ export class LandUnit extends BaseUnit {
 export class NavalUnit extends BaseUnit {
   carriedUnits: Unit[] = [];
 
-  canMoveTo(position: Position): boolean {
+  canMoveTo(_position: Position): boolean {
     // Naval units can move to ocean/water tiles
     return this.movementPoints > 0;
   }
@@ -171,7 +171,7 @@ export class AirUnit extends BaseUnit {
   basePosition: Position | null = null; // Must return to base
   turnsInAir: number = 0;
 
-  canMoveTo(position: Position): boolean {
+  canMoveTo(_position: Position): boolean {
     // Air units have special movement rules
     return this.movementPoints > 0;
   }
@@ -212,7 +212,7 @@ export class AirUnit extends BaseUnit {
 
 // Special unit class for non-combat units
 export class SpecialUnit extends BaseUnit {
-  canMoveTo(position: Position): boolean {
+  canMoveTo(_position: Position): boolean {
     return this.movementPoints > 0;
   }
 

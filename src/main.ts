@@ -10,6 +10,9 @@ import { Status } from './renderer/Status.js';
 import { InputHandler } from './utils/InputHandler.js';
 import { MusicPlayer } from './utils/MusicPlayer.js';
 import { UITemplateManager } from './utils/UITemplateManager.js';
+import { SettingsManager } from './utils/SettingsManager.js';
+import { SoundEffects } from './utils/SoundEffects.js';
+import { TechnologyUI } from './utils/TechnologyUI.js';
 import { MapScenario, UnitType } from './types/game.js';
 
 class CivWinApp {
@@ -21,6 +24,7 @@ class CivWinApp {
   private cityView: CityView;
   private inputHandler: InputHandler;
   private musicPlayer: MusicPlayer;
+  private settingsManager: SettingsManager;
   private canvas: HTMLCanvasElement;
   private minimapCanvas: HTMLCanvasElement;
   private currentScenario: MapScenario = 'random';
@@ -45,6 +49,7 @@ class CivWinApp {
     this.status = new Status();
     this.cityView = new CityView(this.game);
     this.musicPlayer = new MusicPlayer();
+    this.settingsManager = SettingsManager.getInstance();
     this.inputHandler = new InputHandler(
       this.game, 
       this.gameRenderer, 
@@ -72,6 +77,7 @@ class CivWinApp {
     /** Make input handler accessible for debugging */
     (window as any).inputHandler = this.inputHandler;
     (window as any).musicPlayer = this.musicPlayer;
+    (window as any).settingsManager = this.settingsManager;
 
     /** Trigger initial render */
     this.requestRender();
@@ -79,7 +85,15 @@ class CivWinApp {
     /** Auto-start music player after a short delay */
     setTimeout(() => {
       this.musicPlayer.autoStart();
+      // Apply saved volume setting
+      const volume = this.settingsManager.getSetting('masterVolume');
+      this.musicPlayer.setVolume(volume / 100);
     }, 2000);
+
+    // Example usage of SettingsManager:
+    // const volume = this.settingsManager.getSetting('masterVolume');
+    // this.settingsManager.setSetting('showGrid', true);
+    // const allSettings = this.settingsManager.getSettings();
   }
 
   /**
@@ -248,6 +262,11 @@ class CivWinApp {
       }
     });
 
+    this.addMenuAction('settings', () => {
+      console.log('Settings clicked');
+      this.showSettingsModal();
+    });
+
     // Edit menu
     this.addMenuAction('undo', () => {
       console.log('Undo clicked');
@@ -289,6 +308,24 @@ class CivWinApp {
     this.addMenuAction('foreign-advisor', () => {
       console.log('Foreign Advisor clicked');
       alert('Foreign Advisor coming soon!');
+    });
+
+    this.addMenuAction('science-advisor', () => {
+      console.log('Science Advisor clicked');
+      console.log('Game instance:', this.game);
+      console.log('TechnologyUI:', TechnologyUI);
+      
+      if (this.game) {
+        try {
+          TechnologyUI.handleTechnologyShortcut(this.game);
+          console.log('TechnologyUI.handleTechnologyShortcut called successfully');
+        } catch (error) {
+          console.error('Error calling TechnologyUI.handleTechnologyShortcut:', error);
+        }
+      } else {
+        console.warn('No game instance available');
+        alert('Please start a game first!');
+      }
     });
 
     // World menu
@@ -343,6 +380,7 @@ class CivWinApp {
   private showScenarioModal(): void {
     const modal = document.querySelector('#scenario-modal') as HTMLElement;
     if (modal) {
+      modal.style.display = 'flex';
       modal.classList.add('active');
       
       // Setup modal event listeners
@@ -354,6 +392,31 @@ class CivWinApp {
   private hideScenarioModal(): void {
     const modal = document.querySelector('#scenario-modal') as HTMLElement;
     if (modal) {
+      modal.style.display = 'none';
+      modal.classList.remove('active');
+    }
+  }
+
+  // Show settings modal
+  private showSettingsModal(): void {
+    const modal = document.querySelector('#settings-modal') as HTMLElement;
+    if (modal) {
+      modal.style.display = 'flex';
+      modal.classList.add('active');
+      
+      // Setup modal event listeners
+      this.setupSettingsModalListeners();
+      
+      // Load current settings
+      this.loadCurrentSettings();
+    }
+  }
+
+  // Hide settings modal
+  private hideSettingsModal(): void {
+    const modal = document.querySelector('#settings-modal') as HTMLElement;
+    if (modal) {
+      modal.style.display = 'none';
       modal.classList.remove('active');
     }
   }
@@ -414,6 +477,198 @@ class CivWinApp {
         this.hideScenarioModal();
       }
     });
+  }
+
+  // Setup settings modal event listeners
+  private setupSettingsModalListeners(): void {
+    console.log('Setting up settings modal listeners');
+    
+    const modal = document.querySelector('#settings-modal');
+    if (!modal) {
+      console.error('Settings modal not found');
+      return;
+    }
+
+    // Remove any existing listeners by cloning the modal
+    const newModal = modal.cloneNode(true);
+    modal.parentNode?.replaceChild(newModal, modal);
+
+    // Add event listener using event delegation
+    newModal.addEventListener('click', (e) => {
+      const target = e.target as HTMLElement;
+      console.log('Settings modal click:', target.id, target.textContent);
+      
+      // Handle close and cancel buttons
+      if (target.id === 'settings-modal-close' || target.id === 'settings-cancel') {
+        console.log('Closing settings modal');
+        this.hideSettingsModal();
+        return;
+      }
+      
+      // Handle apply button
+      if (target.id === 'settings-apply') {
+        console.log('Apply settings button clicked');
+        this.applySettings();
+        this.hideSettingsModal();
+        return;
+      }
+      
+      // Handle reset button
+      if (target.id === 'settings-reset') {
+        console.log('Reset settings button clicked');
+        this.resetSettingsToDefaults();
+        return;
+      }
+      
+      // Close modal when clicking on overlay background
+      if (target === newModal) {
+        console.log('Clicked on settings modal overlay, closing');
+        this.hideSettingsModal();
+      }
+    });
+
+    // Handle range input updates
+    newModal.addEventListener('input', (e) => {
+      const target = e.target as HTMLInputElement;
+      if (target.type === 'range') {
+        const valueSpan = (newModal as HTMLElement).querySelector('.volume-value');
+        if (valueSpan && target.id === 'master-volume') {
+          valueSpan.textContent = `${target.value}%`;
+          
+          // Update the master volume setting in real-time
+          const newVolume = parseInt(target.value);
+          this.settingsManager.updateSettings({ masterVolume: newVolume });
+          
+          // Update music volume immediately
+          if (this.musicPlayer) {
+            this.musicPlayer.setVolume(newVolume / 100);
+          }
+          
+          // Play a test sound to demonstrate the new volume level
+          SoundEffects.playVolumeTestSound();
+        }
+      }
+    });
+  }
+
+  // Load current settings into the modal
+  private loadCurrentSettings(): void {
+    const settings = this.settingsManager.getSettings();
+
+    // Load settings into form elements
+    this.setCheckboxValue('show-grid', settings.showGrid);
+    this.setCheckboxValue('unit-animations', settings.unitAnimations);
+    this.setSelectValue('terrain-quality', settings.terrainQuality);
+    this.setCheckboxValue('auto-save', settings.autoSave);
+    this.setInputValue('turn-timer', settings.turnTimer.toString());
+    this.setSelectValue('ai-speed', settings.aiSpeed);
+    this.setInputValue('master-volume', settings.masterVolume.toString());
+    this.setCheckboxValue('music-enabled', settings.musicEnabled);
+    this.setCheckboxValue('sound-effects', settings.soundEffects);
+    
+    // Update volume display
+    const volumeValue = document.querySelector('.volume-value');
+    if (volumeValue) {
+      volumeValue.textContent = `${settings.masterVolume}%`;
+    }
+  }
+
+  // Apply settings from the modal
+  private applySettings(): void {
+    const newSettings = {
+      showGrid: this.getCheckboxValue('show-grid'),
+      unitAnimations: this.getCheckboxValue('unit-animations'),
+      terrainQuality: this.getSelectValue('terrain-quality') as 'low' | 'medium' | 'high',
+      autoSave: this.getCheckboxValue('auto-save'),
+      turnTimer: parseInt(this.getInputValue('turn-timer') || '60'),
+      aiSpeed: this.getSelectValue('ai-speed') as 'slow' | 'normal' | 'fast',
+      masterVolume: parseInt(this.getInputValue('master-volume') || '80'),
+      musicEnabled: this.getCheckboxValue('music-enabled'),
+      soundEffects: this.getCheckboxValue('sound-effects')
+    };
+
+    console.log('Applying settings:', newSettings);
+    
+    // Update settings through the manager
+    this.settingsManager.updateSettings(newSettings);
+    
+    // Apply music volume immediately
+    if (this.musicPlayer) {
+      this.musicPlayer.setVolume(newSettings.masterVolume / 100);
+    }
+    
+    // Play a test sound to demonstrate the new volume level
+    SoundEffects.playVolumeTestSound();
+    
+    // Note: Sound effects volume is automatically applied when SoundEffects.playSound() is called
+    // since it reads from SettingsManager each time
+    
+    // Force a re-render to apply visual changes
+    this.requestRender();
+    
+    console.log('Settings applied successfully');
+  }
+
+  // Reset settings to defaults
+  private resetSettingsToDefaults(): void {
+    console.log('Resetting settings to defaults');
+    
+    // Reset through the settings manager
+    this.settingsManager.resetToDefaults();
+    
+    // Reload settings in the modal
+    this.loadCurrentSettings();
+  }
+
+  // Helper methods for form elements
+  private setCheckboxValue(id: string, value: boolean): void {
+    const element = document.querySelector(`#${id}`) as HTMLInputElement;
+    if (element) {
+      element.checked = value;
+    }
+  }
+
+  private getCheckboxValue(id: string): boolean {
+    const element = document.querySelector(`#${id}`) as HTMLInputElement;
+    return element ? element.checked : false;
+  }
+
+  private setSelectValue(id: string, value: string): void {
+    const element = document.querySelector(`#${id}`) as HTMLSelectElement;
+    if (element) {
+      element.value = value;
+    }
+  }
+
+  private getSelectValue(id: string): string {
+    const element = document.querySelector(`#${id}`) as HTMLSelectElement;
+    return element ? element.value : '';
+  }
+
+  private setInputValue(id: string, value: string): void {
+    const element = document.querySelector(`#${id}`) as HTMLInputElement;
+    if (element) {
+      element.value = value;
+    }
+  }
+
+  private getInputValue(id: string): string {
+    const element = document.querySelector(`#${id}`) as HTMLInputElement;
+    return element ? element.value : '';
+  }
+
+  /**
+   * Get the settings manager instance
+   */
+  public getSettingsManager(): SettingsManager {
+    return this.settingsManager;
+  }
+
+  /**
+   * Test sound effects with current volume settings
+   */
+  public testSoundEffects(): void {
+    SoundEffects.playInvalidActionSound();
   }
 
   // Preload unit and city sprites for better performance
@@ -594,12 +849,16 @@ class CivWinApp {
   // Render the game (only when needed)
   private render(): void {
     const gameState = this.game.getGameState();
+    const showGrid = this.settingsManager.getSetting('showGrid');
+    
     console.debug('Rendering game state:', {
       worldMapSize: `${gameState.worldMap.length}x${gameState.worldMap[0]?.length || 0}`,
       turn: gameState.turn,
-      canvasSize: `${this.canvas.width}x${this.canvas.height}`
+      canvasSize: `${this.canvas.width}x${this.canvas.height}`,
+      showGrid
     });
-    this.gameRenderer.render(gameState);
+    
+    this.gameRenderer.render(gameState, showGrid);
     this.minimap.updateGameState(gameState);
     this.status.updateGameState(gameState);
   }
@@ -611,12 +870,17 @@ document.addEventListener('DOMContentLoaded', async () => {
     const templateManager = UITemplateManager.getInstance();
     await templateManager.loadAllTemplates();
     
+    // Initialize UI systems after templates are loaded
+    console.log('Initializing TechnologyUI after templates are loaded...');
+    TechnologyUI.initialize();
+    
     // Initialize the app after templates are loaded
     const app = new CivWinApp();
     app.start();
 
     // Make app globally accessible for debugging
     (window as any).civWinApp = app;
+    (window as any).testSoundEffects = () => app.testSoundEffects();
   } catch (error) {
     console.error('Failed to initialize application:', error);
     // Show user-friendly error message

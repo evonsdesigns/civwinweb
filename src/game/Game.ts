@@ -2,7 +2,7 @@ import { GamePhase, GameState, Player, Position, Unit, City, GovernmentType, GOV
 import { MapGenerator } from './MapGenerator';
 import { TurnManager } from './TurnManager';
 import { createUnit } from './Units';
-import { getUnitStats } from './UnitDefinitions';
+import { getUnitStats, canUnitSleep } from './UnitDefinitions';
 import { CombatSystem, CombatResult } from './CombatSystem';
 import { getTechnology, canResearch, getResearchCost } from './TechnologyDefinitions';
 import { TerrainManager } from '../terrain/index';
@@ -660,6 +660,21 @@ export class Game {
     const unit = this.gameState.units.find((u: Unit) => u.id === unitId);
     if (!unit || unit.type !== UnitType.SETTLER) return false;
 
+    // Check if position allows city founding (terrain validation)
+    if (!this.isValidPosition(unit.position)) {
+      console.log('foundCity: Cannot found city - invalid terrain');
+      return false;
+    }
+
+    // Check minimum distance requirement (3 squares between cities)
+    const minDistance = 3;
+    for (const city of this.gameState.cities) {
+      if (this.calculateWrappedDistance(unit.position, city.position) < minDistance) {
+        console.log('foundCity: Cannot found city - too close to existing city');
+        return false;
+      }
+    }
+
     console.log('foundCity: Founding city for player:', unit.playerId);
     
     // Generate city name if not provided
@@ -883,6 +898,70 @@ export class Game {
       const stats = getUnitStats(unit.type);
       unit.movementPoints = stats.movement;
     }
+
+    // Add unit to the move queue if it's not already there
+    if (!this.unitQueue.find(u => u.id === unitId)) {
+      this.unitQueue.push(unit);
+    }
+
+    // Make this unit the current unit
+    const unitIndex = this.unitQueue.findIndex(u => u.id === unitId);
+    if (unitIndex >= 0) {
+      this.currentUnitIndex = unitIndex;
+      this.setCurrentUnit(unit);
+    }
+
+    this.emit('unitActivated', unit);
+    return true;
+  }
+
+  // Put a unit to sleep
+  public sleepUnit(unitId: string): boolean {
+    const unit = this.gameState.units.find(u => u.id === unitId);
+    if (!unit) return false;
+
+    // Check if this unit type can sleep (air units cannot sleep)
+    if (!canUnitSleep(unit.type)) return false;
+
+    // Put unit to sleep
+    unit.sleeping = true;
+    unit.movementPoints = 0; // End turn when sleeping
+
+    // Remove the unit from the move queue since sleeping ends the turn
+    this.removeUnitFromQueue(unitId);
+
+    this.emit('unitSlept', unit);
+    return true;
+  }
+
+  // Wake up a sleeping unit
+  public wakeUpUnit(unitId: string): boolean {
+    const unit = this.gameState.units.find(u => u.id === unitId);
+    if (!unit) return false;
+
+    // Only wake units that are actually sleeping
+    if (!unit.sleeping) return false;
+
+    unit.sleeping = false;
+
+    this.emit('unitWokeUp', unit);
+    return true;
+  }
+
+  // Wake up a sleeping unit and add it back to the move queue
+  public wakeUpAndActivateUnit(unitId: string): boolean {
+    const unit = this.gameState.units.find(u => u.id === unitId);
+    if (!unit) return false;
+
+    // Can only activate units belonging to current player
+    if (unit.playerId !== this.gameState.currentPlayer) return false;
+
+    // Wake the unit
+    this.wakeUpUnit(unitId);
+
+    // Restore movement points
+    const stats = getUnitStats(unit.type);
+    unit.movementPoints = stats.movement;
 
     // Add unit to the move queue if it's not already there
     if (!this.unitQueue.find(u => u.id === unitId)) {

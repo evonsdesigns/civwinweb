@@ -16,7 +16,7 @@ export class AIPlayer {
     
     // Process each unit with AI decision making
     for (const unit of aiUnits) {
-      if (unit.movementPoints > 0 && !unit.fortified && !unit.fortifying) {
+      if (unit.movementPoints > 0 && !unit.fortified && !unit.fortifying && !unit.sleeping) {
         await this.processAIUnit(unit, gameState);
       }
     }
@@ -168,10 +168,11 @@ export class AIPlayer {
    */
   private static getValidMoves(position: Position, gameState: GameState): Position[] {
     const moves: Position[] = [];
+    // Allow all 8 directions (including diagonals)
     const directions = [
-      [-1, -1], [0, -1], [1, -1],
-      [-1,  0],          [1,  0],
-      [-1,  1], [0,  1], [1,  1]
+      [-1, -1], [0, -1], [1, -1], // Northwest, North, Northeast
+      [-1,  0],          [1,  0], // West, East
+      [-1,  1], [0,  1], [1,  1]  // Southwest, South, Southeast
     ];
     
     for (const [dx, dy] of directions) {
@@ -260,9 +261,8 @@ export class AIPlayer {
     if (!TerrainManager.canFoundCity(tile.terrain)) return false;
     
     // Check if there's already a city nearby
-    // Reduce minimum distance in early game to allow more aggressive expansion
-    const isEarlyGame = gameState.turn <= 10;
-    const minDistance = isEarlyGame ? 2 : 3;
+    // Enforce minimum distance of 3 squares between cities
+    const minDistance = 3;
     
     for (const city of gameState.cities) {
       if (this.getDistance(position, city.position) < minDistance) {
@@ -456,9 +456,20 @@ export class AIPlayer {
    * Calculate distance between two positions (considering map wrapping)
    */
   private static getDistance(pos1: Position, pos2: Position): number {
-    const dx = Math.abs(pos1.x - pos2.x);
+    // Get map dimensions from a sample tile (assuming standard 80x50 world)
+    const mapWidth = 80; // Standard world width with wrapping
+    
+    // Calculate direct distance
+    const directDx = Math.abs(pos1.x - pos2.x);
+    
+    // Calculate wrapped distance (shortest path around the world)
+    const wrappedDx = mapWidth - directDx;
+    
+    // Use shorter distance for X axis
+    const dx = Math.min(directDx, wrappedDx);
     const dy = Math.abs(pos1.y - pos2.y);
-    return dx + dy; // Manhattan distance
+    
+    return dx + dy; // Manhattan distance with wrapping
   }
   
   /**

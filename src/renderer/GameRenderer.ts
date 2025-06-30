@@ -19,7 +19,7 @@ export class GameRenderer {
   }
 
   // Render the entire game state
-  public render(gameState: GameState): void {
+  public render(gameState: GameState, showGrid: boolean = false): void {
     this.renderer.clear();
     if (gameState.worldMap.length === 0) {
       console.error('No world map data to render');
@@ -38,8 +38,10 @@ export class GameRenderer {
     // Render units
     this.renderUnits(gameState.units, gameState);
     
-    // Render grid overlay
-    this.renderGrid();
+    // Render grid overlay (only if enabled)
+    if (showGrid) {
+      this.renderGrid();
+    }
     
     // Render selections
     this.renderSelections();
@@ -485,9 +487,19 @@ export class GameRenderer {
     );
   }
 
-  // Render fortification indicator
+  // Render fortification and sleep indicators
   private renderFortificationIndicator(screenPos: {x: number, y: number}, tileSize: number, unit: Unit): void {
-    if (unit.fortifying) {
+    if (unit.sleeping) {
+      // Show "Z" for sleeping units
+      this.renderer.fillText(
+        'Z',
+        screenPos.x + tileSize - 8,
+        screenPos.y + tileSize - 8,
+        '#4169E1',
+        '12px Arial',
+        'center'
+      );
+    } else if (unit.fortifying) {
       // Show "F" for units in the process of fortifying (first turn of 2-turn fortification)
       this.renderer.fillText(
         'F',
@@ -621,9 +633,9 @@ export class GameRenderer {
   private shouldRenderUnit(unit: Unit): boolean {
     // If this is the selected unit and blinking is enabled, check blink state
     if (this.selectedUnit && this.selectedUnit.id === unit.id) {
-      // Fortified or fortifying units should never blink
-      if (unit.fortified || unit.fortifying) {
-        return true; // Always render fortified units (no blinking)
+      // Fortified, fortifying, or sleeping units should never blink
+      if (unit.fortified || unit.fortifying || unit.sleeping) {
+        return true; // Always render inactive units (no blinking)
       }
       return this.blinkState;
     }
@@ -635,9 +647,15 @@ export class GameRenderer {
   private renderUnitWithAlpha(unit: Unit, screenPos: {x: number, y: number}, tileSize: number, alpha: number, gameState: GameState): void {
     const ctx = this.renderer.getContext();
     const originalAlpha = ctx.globalAlpha;
+    const originalFilter = ctx.filter;
     
     // Set alpha for this unit
     ctx.globalAlpha = alpha;
+    
+    // Apply grayscale filter for sleeping units
+    if (unit.sleeping) {
+      ctx.filter = 'grayscale(100%) brightness(0.7)';
+    }
     
     // Try to use custom sprite first if available (synchronous check)
     if (UnitSprites.hasCustomSprite(unit.type)) {
@@ -650,6 +668,9 @@ export class GameRenderer {
       if (sprite) {
         // Draw the sprite
         ctx.drawImage(sprite, screenPos.x, screenPos.y, tileSize, tileSize);
+        
+        // Restore filter before rendering overlays
+        ctx.filter = originalFilter;
         
         // Add overlays for unit status
         this.renderUnitOverlays(unit, screenPos, tileSize);
@@ -665,14 +686,22 @@ export class GameRenderer {
     
     // Fallback to geometric rendering for units without sprites or while loading
     const stats = getUnitStats(unit.type);
-    const unitColor = this.getUnitColor(unit.type, stats.category);
+    let unitColor = this.getUnitColor(unit.type, stats.category);
     const unitSymbol = this.getUnitSymbol(unit.type);
+    
+    // Make sleeping units gray for geometric rendering
+    if (unit.sleeping) {
+      unitColor = '#808080'; // Gray color for sleeping units
+    }
     
     // Unit body - different shapes for different categories
     this.renderUnitBody(screenPos, tileSize, stats.category, unitColor);
     
     // Unit symbol/text
     this.renderUnitSymbol(screenPos, tileSize, unitSymbol);
+    
+    // Restore filter before rendering overlays
+    ctx.filter = originalFilter;
     
     // Render overlays
     this.renderUnitOverlays(unit, screenPos, tileSize);
@@ -681,15 +710,15 @@ export class GameRenderer {
     ctx.globalAlpha = originalAlpha;
   }
 
-  // Render unit status overlays (veteran, fortification, health, movement)
+  // Render unit status overlays (veteran, fortification, sleep, health, movement)
   private renderUnitOverlays(unit: Unit, screenPos: {x: number, y: number}, tileSize: number): void {
     // Veteran indicator
     if (unit.isVeteran) {
       this.renderVeteranIndicator(screenPos, tileSize);
     }
     
-    // Fortification indicator
-    if (unit.fortified || unit.fortifying) {
+    // Fortification or sleep indicator
+    if (unit.fortified || unit.fortifying || unit.sleeping) {
       this.renderFortificationIndicator(screenPos, tileSize, unit);
     }
     

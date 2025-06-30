@@ -1,4 +1,4 @@
-import { UnitType, UnitStats, UnitCategory } from '../types/game';
+import { UnitType, UnitStats, UnitCategory, Unit } from '../types/game';
 import { TechnologyType } from './TechnologyDefinitions';
 
 // Complete unit definitions based on Civilization manual
@@ -12,6 +12,7 @@ export const UNIT_DEFINITIONS: Record<UnitType, UnitStats> = {
     productionCost: 40,
     canAttack: false,
     canFortify: false,
+    canMoveOnMountains: true,
     specialAbilities: ['found_city', 'build_improvements', 'add_population']
   },
   
@@ -24,6 +25,7 @@ export const UNIT_DEFINITIONS: Record<UnitType, UnitStats> = {
     productionCost: 30,
     canAttack: false,
     canFortify: false,
+    canMoveOnMountains: true,
     specialAbilities: ['establish_embassy', 'steal_technology', 'sabotage', 'incite_revolt', 'bribe_units']
   },
   
@@ -36,6 +38,7 @@ export const UNIT_DEFINITIONS: Record<UnitType, UnitStats> = {
     productionCost: 50,
     canAttack: false,
     canFortify: false,
+    canMoveOnMountains: true,
     specialAbilities: ['establish_trade_route', 'help_wonder_construction']
   },
   
@@ -47,7 +50,8 @@ export const UNIT_DEFINITIONS: Record<UnitType, UnitStats> = {
     category: UnitCategory.LAND,
     productionCost: 10,
     canAttack: true,
-    canFortify: true
+    canFortify: true,
+    canMoveOnMountains: true
   },
   
   [UnitType.PHALANX]: {
@@ -58,7 +62,8 @@ export const UNIT_DEFINITIONS: Record<UnitType, UnitStats> = {
     requiredTechnology: TechnologyType.BRONZE_WORKING,
     productionCost: 20,
     canAttack: true,
-    canFortify: true
+    canFortify: true,
+    canMoveOnMountains: true
   },
   
   [UnitType.LEGION]: {
@@ -69,7 +74,8 @@ export const UNIT_DEFINITIONS: Record<UnitType, UnitStats> = {
     requiredTechnology: TechnologyType.IRON_WORKING,
     productionCost: 20,
     canAttack: true,
-    canFortify: true
+    canFortify: true,
+    canMoveOnMountains: true
   },
   
   [UnitType.CAVALRY]: {
@@ -80,7 +86,8 @@ export const UNIT_DEFINITIONS: Record<UnitType, UnitStats> = {
     requiredTechnology: TechnologyType.HORSEBACK_RIDING,
     productionCost: 20,
     canAttack: true,
-    canFortify: true
+    canFortify: true,
+    canMoveOnMountains: true
   },
   
   [UnitType.CHARIOT]: {
@@ -91,7 +98,8 @@ export const UNIT_DEFINITIONS: Record<UnitType, UnitStats> = {
     requiredTechnology: TechnologyType.THE_WHEEL,
     productionCost: 40,
     canAttack: true,
-    canFortify: true
+    canFortify: true,
+    canMoveOnMountains: true
   },
   
   [UnitType.CATAPULT]: {
@@ -103,6 +111,7 @@ export const UNIT_DEFINITIONS: Record<UnitType, UnitStats> = {
     productionCost: 40,
     canAttack: true,
     canFortify: true,
+    canMoveOnMountains: true,
     specialAbilities: ['siege_warfare', 'ignore_city_walls']
   },
   
@@ -115,7 +124,8 @@ export const UNIT_DEFINITIONS: Record<UnitType, UnitStats> = {
     requiredTechnology: TechnologyType.CHIVALRY,
     productionCost: 40,
     canAttack: true,
-    canFortify: true
+    canFortify: true,
+    canMoveOnMountains: true
   },
   
   // Gunpowder units
@@ -127,7 +137,8 @@ export const UNIT_DEFINITIONS: Record<UnitType, UnitStats> = {
     requiredTechnology: TechnologyType.GUNPOWDER,
     productionCost: 30,
     canAttack: true,
-    canFortify: true
+    canFortify: true,
+    canMoveOnMountains: true
   },
   
   [UnitType.CANNON]: {
@@ -139,6 +150,7 @@ export const UNIT_DEFINITIONS: Record<UnitType, UnitStats> = {
     productionCost: 40,
     canAttack: true,
     canFortify: true,
+    canMoveOnMountains: true,
     specialAbilities: ['siege_warfare', 'ignore_city_walls']
   },
   
@@ -151,7 +163,8 @@ export const UNIT_DEFINITIONS: Record<UnitType, UnitStats> = {
     requiredTechnology: TechnologyType.CONSCRIPTION,
     productionCost: 30,
     canAttack: true,
-    canFortify: true
+    canFortify: true,
+    canMoveOnMountains: true
   },
   
   [UnitType.ARTILLERY]: {
@@ -163,6 +176,7 @@ export const UNIT_DEFINITIONS: Record<UnitType, UnitStats> = {
     productionCost: 60,
     canAttack: true,
     canFortify: true,
+    canMoveOnMountains: true,
     specialAbilities: ['siege_warfare', 'ignore_city_walls']
   },
   
@@ -175,7 +189,8 @@ export const UNIT_DEFINITIONS: Record<UnitType, UnitStats> = {
     requiredTechnology: TechnologyType.AUTOMOBILE,
     productionCost: 80,
     canAttack: true,
-    canFortify: true
+    canFortify: true,
+    canMoveOnMountains: true
   },
   
   [UnitType.MECHANIZED_INFANTRY]: {
@@ -186,7 +201,8 @@ export const UNIT_DEFINITIONS: Record<UnitType, UnitStats> = {
     requiredTechnology: TechnologyType.LABOR_UNION,
     productionCost: 50,
     canAttack: true,
-    canFortify: true
+    canFortify: true,
+    canMoveOnMountains: true
   },
   
   // Naval units
@@ -199,6 +215,7 @@ export const UNIT_DEFINITIONS: Record<UnitType, UnitStats> = {
     productionCost: 40,
     canAttack: true,
     canFortify: false,
+    canMoveOnWater: true,
     canCarryUnits: 2,
     specialAbilities: ['coastal_restriction', 'lost_at_sea_risk']
   },
@@ -212,6 +229,7 @@ export const UNIT_DEFINITIONS: Record<UnitType, UnitStats> = {
     productionCost: 40,
     canAttack: true,
     canFortify: false,
+    canMoveOnWater: true,
     canCarryUnits: 3
   },
   
@@ -224,6 +242,7 @@ export const UNIT_DEFINITIONS: Record<UnitType, UnitStats> = {
     productionCost: 40,
     canAttack: true,
     canFortify: false,
+    canMoveOnWater: true,
     canCarryUnits: 4
   },
   
@@ -235,7 +254,8 @@ export const UNIT_DEFINITIONS: Record<UnitType, UnitStats> = {
     requiredTechnology: TechnologyType.STEAM_ENGINE,
     productionCost: 60,
     canAttack: true,
-    canFortify: false
+    canFortify: false,
+    canMoveOnWater: true
   },
   
   [UnitType.CRUISER]: {
@@ -247,6 +267,7 @@ export const UNIT_DEFINITIONS: Record<UnitType, UnitStats> = {
     productionCost: 80,
     canAttack: true,
     canFortify: false,
+    canMoveOnWater: true,
     visibility: 2,
     specialAbilities: ['shore_bombardment']
   },
@@ -260,6 +281,7 @@ export const UNIT_DEFINITIONS: Record<UnitType, UnitStats> = {
     productionCost: 160,
     canAttack: true,
     canFortify: false,
+    canMoveOnWater: true,
     visibility: 2,
     specialAbilities: ['shore_bombardment']
   },
@@ -273,6 +295,7 @@ export const UNIT_DEFINITIONS: Record<UnitType, UnitStats> = {
     productionCost: 160,
     canAttack: true,
     canFortify: false,
+    canMoveOnWater: true,
     canCarryUnits: 8,
     visibility: 2,
     specialAbilities: ['air_base']
@@ -287,6 +310,7 @@ export const UNIT_DEFINITIONS: Record<UnitType, UnitStats> = {
     productionCost: 50,
     canAttack: false,
     canFortify: false,
+    canMoveOnWater: true,
     canCarryUnits: 8
   },
   
@@ -299,6 +323,7 @@ export const UNIT_DEFINITIONS: Record<UnitType, UnitStats> = {
     productionCost: 50,
     canAttack: true,
     canFortify: false,
+    canMoveOnWater: true,
     visibility: 2,
     specialAbilities: ['underwater', 'invisible_unless_adjacent']
   },
@@ -313,6 +338,7 @@ export const UNIT_DEFINITIONS: Record<UnitType, UnitStats> = {
     productionCost: 60,
     canAttack: true,
     canFortify: false,
+    canMoveOnMountains: true,
     specialAbilities: ['must_return_to_base', 'intercept_bombers']
   },
   
@@ -325,6 +351,7 @@ export const UNIT_DEFINITIONS: Record<UnitType, UnitStats> = {
     productionCost: 120,
     canAttack: true,
     canFortify: false,
+    canMoveOnMountains: true,
     visibility: 2,
     specialAbilities: ['must_return_to_base', 'ignore_city_walls', 'cannot_be_attacked_by_ground']
   },
@@ -339,6 +366,7 @@ export const UNIT_DEFINITIONS: Record<UnitType, UnitStats> = {
     productionCost: 160,
     canAttack: true,
     canFortify: false,
+    canMoveOnMountains: true,
     specialAbilities: ['nuclear_weapon', 'must_end_in_city_or_carrier', 'destroys_on_attack']
   },
   
@@ -350,7 +378,8 @@ export const UNIT_DEFINITIONS: Record<UnitType, UnitStats> = {
     category: UnitCategory.LAND,
     productionCost: 10,
     canAttack: true,
-    canFortify: true
+    canFortify: true,
+    canMoveOnMountains: true
   },
   
   [UnitType.SCOUT]: {
@@ -360,7 +389,8 @@ export const UNIT_DEFINITIONS: Record<UnitType, UnitStats> = {
     category: UnitCategory.LAND,
     productionCost: 10,
     canAttack: false,
-    canFortify: true
+    canFortify: true,
+    canMoveOnMountains: true
   },
   
   [UnitType.ARCHER]: {
@@ -371,7 +401,8 @@ export const UNIT_DEFINITIONS: Record<UnitType, UnitStats> = {
     requiredTechnology: TechnologyType.WARRIOR_CODE,
     productionCost: 20,
     canAttack: true,
-    canFortify: true
+    canFortify: true,
+    canMoveOnMountains: true
   },
   
   [UnitType.SPEARMAN]: {
@@ -382,7 +413,8 @@ export const UNIT_DEFINITIONS: Record<UnitType, UnitStats> = {
     requiredTechnology: TechnologyType.BRONZE_WORKING,
     productionCost: 20,
     canAttack: true,
-    canFortify: true
+    canFortify: true,
+    canMoveOnMountains: true
   }
 };
 
@@ -420,4 +452,18 @@ export function canUnitFortify(unitType: UnitType): boolean {
 
 export function getUnitProductionCost(unitType: UnitType): number {
   return UNIT_DEFINITIONS[unitType].productionCost;
+}
+
+export function canUnitSleep(unitType: UnitType): boolean {
+  // Air units cannot sleep
+  return UNIT_DEFINITIONS[unitType].category !== UnitCategory.AIR;
+}
+
+export function canUnitWakeUp(unit: Unit): boolean {
+  // A unit can wake up if it's currently sleeping
+  return unit.sleeping === true;
+}
+
+export function isUnitSleeping(unit: Unit): boolean {
+  return unit.sleeping === true;
 }
