@@ -99,6 +99,11 @@ export class CityView {
       if (event.key === 'Escape' && this.isOpen()) {
         this.close();
       }
+      // Handle Enter/Space to close (OK button)
+      if ((event.key === 'Enter' || event.key === ' ') && this.isOpen()) {
+        event.preventDefault();
+        this.close();
+      }
     });
   }
 

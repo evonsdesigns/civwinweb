@@ -57,18 +57,18 @@ export class TechnologyUI {
     this.technologyModal.show(game, player, (technology: TechnologyType) => {
       console.log('TechnologyUI: Technology selected:', technology);
       
-      // Default behavior: research the technology
-      const success = game.researchTechnology(player.id, technology);
+      // Set the technology as current research (don't complete it immediately)
+      const success = game.setCurrentResearch(player.id, technology);
       
       if (success) {
-        console.log(`Player ${player.name} researched ${technology}`);
+        console.log(`Player ${player.name} is now researching ${technology}`);
         
         // Call the custom callback if provided
         if (onTechnologySelected) {
           onTechnologySelected(technology);
         }
       } else {
-        console.error(`Failed to research technology ${technology} for player ${player.name}`);
+        console.error(`Failed to set current research to ${technology} for player ${player.name}`);
       }
     });
   }
@@ -113,11 +113,11 @@ export class TechnologyUI {
       if (availableTech.length > 0) {
         console.log('TechnologyUI: Opening technology selection modal');
         this.openTechnologySelection(game, currentPlayer, (technology) => {
-          // Custom callback - you could add special effects, notifications, etc.
-          console.log(`Research completed: ${technology}`);
+          // Custom callback - research is already set by openTechnologySelection
+          console.log(`Current research set to: ${technology}`);
           
           // Example: Trigger a UI update or sound effect
-          // this.showTechnologyDiscoveredAnimation(technology);
+          // this.showTechnologySelectedAnimation(technology);
           // this.playTechnologySound();
         });
       } else {

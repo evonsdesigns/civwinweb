@@ -424,6 +424,11 @@ export class InputHandler {
 
     switch (event.key) {
       case ' ': // Spacebar - end turn
+        // Check if any modals are open - if so, let the modal handle the spacebar
+        if (this.isAnyModalOpen()) {
+          return; // Don't handle spacebar when modals are open
+        }
+
         const currentUnit = this.game.getCurrentUnit();
 
         if (currentUnit) {
@@ -546,6 +551,10 @@ export class InputHandler {
 
       case 'Enter':
         event.preventDefault();
+        // Check if any modals are open - if so, let the modal handle Enter
+        if (this.isAnyModalOpen()) {
+          return; // Don't handle Enter when modals are open
+        }
         // End turn when Enter is pressed
         this.game.endTurn();
         break;
@@ -764,6 +773,8 @@ export class InputHandler {
   private closeOpenModals(): boolean {
     const modalIds = [
       'technology-selection-modal',
+      'science-advisor-modal',
+      'technology-discovery-modal',
       'settings-modal',
       'scenario-modal',
       'city-modal'
@@ -784,5 +795,28 @@ export class InputHandler {
     }
 
     return modalClosed;
+  }
+
+  /**
+   * Check if any modal is currently open
+   */
+  private isAnyModalOpen(): boolean {
+    const modalIds = [
+      'technology-selection-modal',
+      'science-advisor-modal',
+      'technology-discovery-modal',
+      'settings-modal',
+      'scenario-modal',
+      'city-modal'
+    ];
+
+    for (const modalId of modalIds) {
+      const modal = document.getElementById(modalId);
+      if (modal && (modal.style.display === 'flex' || modal.classList.contains('active'))) {
+        return true;
+      }
+    }
+
+    return false;
   }
 }

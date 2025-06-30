@@ -1,6 +1,7 @@
 import type { GameState, Unit, City, UnitType } from '../types/game';
 import { createUnit } from './Units';
 import { getUnitStats } from './UnitDefinitions';
+import { getResearchCost } from './TechnologyDefinitions';
 
 export class TurnManager {
   
@@ -166,8 +167,28 @@ export class TurnManager {
 
     // Update player resources
     currentPlayer.gold += goldIncome;
-    currentPlayer.science += scienceIncome;
     currentPlayer.culture += cultureIncome;
+    
+    // Science accumulation: if player has current research, accumulate toward it
+    if (currentPlayer.currentResearch && scienceIncome > 0) {
+      currentPlayer.currentResearchProgress = (currentPlayer.currentResearchProgress || 0) + scienceIncome;
+      
+      // Check if research is complete
+      const researchCost = getResearchCost(currentPlayer.currentResearch);
+      if (currentPlayer.currentResearchProgress >= researchCost) {
+        // Research completed! Emit event for discovery modal
+        gameState.events = gameState.events || [];
+        gameState.events.push({
+          type: 'technologyCompleted',
+          playerId: currentPlayer.id,
+          technologyType: currentPlayer.currentResearch,
+          player: currentPlayer
+        });
+      }
+    } else {
+      // If no current research, accumulate general science points
+      currentPlayer.science += scienceIncome;
+    }
   }
 
   // Calculate gold income from a city

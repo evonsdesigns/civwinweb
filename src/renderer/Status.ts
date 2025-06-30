@@ -1,5 +1,8 @@
 import { GameState, Unit, City, Player } from '../types/game';
 import { getUnitStats, getUnitName } from '../game/UnitDefinitions';
+import { getTechnology, getResearchCost } from '../game/TechnologyDefinitions';
+import { TechnologyUI } from '../utils/TechnologyUI';
+import type { Game } from '../game/Game';
 
 export class Status {
   private window: HTMLElement;
@@ -11,8 +14,10 @@ export class Status {
   private selectedCity: City | null = null;
   private endOfTurnState = false;
   private endOfTurnBlinkInterval: number | null = null;
+  private game: Game;
 
-  constructor() {
+  constructor(game: Game) {
+    this.game = game;
     // Get the status window
     this.window = document.getElementById('status-window')!;
     
@@ -39,6 +44,36 @@ export class Status {
     closeBtn.addEventListener('click', () => {
       this.hide();
     });
+
+    // Technology lightbulb click - research now or open technology selection modal
+    const lightbulb = document.getElementById('tech-lightbulb');
+    if (lightbulb) {
+      lightbulb.addEventListener('click', () => {
+        const currentPlayer = this.getCurrentPlayer();
+        if (!currentPlayer || !currentPlayer.isHuman) return;
+
+        // If player has current research and enough progress, research it immediately
+        if (currentPlayer.currentResearch) {
+          const researchCost = getResearchCost(currentPlayer.currentResearch);
+          const currentProgress = currentPlayer.currentResearchProgress || 0;
+          if (currentProgress >= researchCost) {
+            // Research the technology immediately
+            const success = this.game.researchTechnology(currentPlayer.id, currentPlayer.currentResearch);
+            if (success) {
+              console.log(`Researched ${currentPlayer.currentResearch} by clicking lightbulb`);
+              // The status will update automatically when the UI refreshes
+              return;
+            }
+          }
+        }
+
+        // Otherwise, open technology selection modal
+        TechnologyUI.handleTechnologyShortcut(this.game);
+      });
+      
+      // Make lightbulb visually clickable
+      lightbulb.style.cursor = 'pointer';
+    }
   }
 
   private onWindowDrag = (e: MouseEvent) => {
@@ -194,36 +229,66 @@ export class Status {
   }
 
   private updateTechProgress(): void {
-    // TODO: Implement technology system
-    // For now, show placeholder values
     const lightbulb = document.getElementById('tech-lightbulb');
     const techName = document.getElementById('tech-name');
     const techTurns = document.getElementById('tech-turns');
 
-    if (lightbulb && techName && techTurns) {
-      // Simulate tech progress based on turn number
-      const progress = (this.gameState?.turn || 1) % 10;
-      const turnsRemaining = 10 - progress;
+    if (!lightbulb || !techName || !techTurns) return;
+
+    // Get current player from game state
+    const currentPlayer = this.getCurrentPlayer();
+    if (!currentPlayer) {
+      // No current player - hide tech progress
+      techName.textContent = 'No research';
+      techTurns.textContent = '';
+      lightbulb.className = 'lightbulb';
+      return;
+    }
+
+    if (!currentPlayer.currentResearch) {
+      // No current research selected
+      techName.textContent = 'Select Research';
+      techTurns.textContent = 'Choose technology';
+      lightbulb.className = 'lightbulb turns-5-plus'; // Dim lightbulb
+      return;
+    }
+
+    // Get technology information
+    const techInfo = getTechnology(currentPlayer.currentResearch);
+    const researchCost = getResearchCost(currentPlayer.currentResearch);
+    const currentProgress = currentPlayer.currentResearchProgress || 0;
+    
+    // Calculate science points needed
+    const scienceNeeded = Math.max(0, researchCost - currentProgress);
+    
+    // Update display
+    techName.textContent = techInfo.name;
+    
+    if (scienceNeeded === 0) {
+      // Can complete research immediately
+      techTurns.textContent = 'Ready to complete!';
+      lightbulb.className = 'lightbulb bright turns-1';
+      lightbulb.title = 'Click to complete research of ' + techInfo.name;
+    } else {
+      // Show science points needed
+      techTurns.textContent = `${scienceNeeded} more needed`;
+      lightbulb.title = 'Current research: ' + techInfo.name + '. Click for options.';
       
-      // Remove all existing turn classes
-      lightbulb.className = lightbulb.className.replace(/\bturns-\d+(-plus)?\b/g, '');
-      lightbulb.classList.remove('bright');
+      // Set lightbulb brightness based on progress toward completion
+      const progress = currentProgress / researchCost;
+      lightbulb.className = 'lightbulb';
       
-      // Add appropriate class based on turns remaining
-      if (turnsRemaining === 1) {
-        lightbulb.classList.add('turns-1');
-      } else if (turnsRemaining === 2) {
-        lightbulb.classList.add('turns-2');
-      } else if (turnsRemaining === 3) {
-        lightbulb.classList.add('turns-3');
-      } else if (turnsRemaining === 4) {
-        lightbulb.classList.add('turns-4');
+      if (progress >= 0.8) {
+        lightbulb.classList.add('turns-1'); // Very close
+      } else if (progress >= 0.6) {
+        lightbulb.classList.add('turns-2'); // Close
+      } else if (progress >= 0.4) {
+        lightbulb.classList.add('turns-3'); // Moderate progress
+      } else if (progress >= 0.2) {
+        lightbulb.classList.add('turns-4'); // Some progress
       } else {
-        lightbulb.classList.add('turns-5-plus');
+        lightbulb.classList.add('turns-5-plus'); // Just started
       }
-      
-      techName.textContent = 'Pottery';
-      techTurns.textContent = `${turnsRemaining} turns`;
     }
   }
 

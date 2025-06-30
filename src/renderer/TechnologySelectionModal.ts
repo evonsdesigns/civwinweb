@@ -53,6 +53,20 @@ export class TechnologySelectionModal {
         this.hide();
       }
     });
+
+    // Add keyboard handler for Enter/Space to confirm selection and arrow keys for navigation
+    document.addEventListener('keydown', (event) => {
+      if (this.modal?.style.display === 'flex') {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          this.confirmSelection();
+        }
+        else if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
+          event.preventDefault();
+          this.navigateTechnologies(event.key === 'ArrowUp' ? -1 : 1);
+        }
+      }
+    });
   }
 
   /**
@@ -110,13 +124,20 @@ export class TechnologySelectionModal {
     const currentTechElement = document.getElementById('current-tech');
     const progressElement = document.getElementById('research-progress');
 
-    // Since this game uses direct research purchase rather than gradual progress,
-    // we'll show the available science points instead
-    if (currentTechElement) {
-      currentTechElement.textContent = 'Choose from available technologies';
-    }
-    if (progressElement) {
-      progressElement.textContent = `(${this.player.science} science points available)`;
+    if (currentTechElement && progressElement) {
+      if (this.player.currentResearch) {
+        // Show current research technology
+        const techInfo = getTechnology(this.player.currentResearch);
+        currentTechElement.textContent = techInfo.name;
+        
+        const cost = getResearchCost(this.player.currentResearch);
+        const needed = Math.max(0, cost - this.player.science);
+        progressElement.textContent = `(${this.player.science}/${cost} science points, ${needed} more needed)`;
+      } else {
+        // No current research
+        currentTechElement.textContent = 'None - Choose from available technologies';
+        progressElement.textContent = `(${this.player.science} science points available)`;
+      }
     }
   }
 
@@ -244,6 +265,50 @@ export class TechnologySelectionModal {
     this.selectedTechnology = technologyType;
     this.updateTechnologyDetails(technologyType);
     this.updateResearchButton();
+  }
+
+  /**
+   * Navigate between technology options using arrow keys
+   */
+  private navigateTechnologies(direction: number): void {
+    if (!this.technologyList) return;
+
+    const techItems = this.technologyList.querySelectorAll('.technology-item');
+    if (techItems.length === 0) return;
+
+    // Find currently selected technology index
+    let currentIndex = -1;
+    techItems.forEach((item, index) => {
+      if (item.classList.contains('selected')) {
+        currentIndex = index;
+      }
+    });
+
+    // If no item is selected, start from the first one
+    if (currentIndex === -1) {
+      currentIndex = direction > 0 ? -1 : 0;
+    }
+
+    // Calculate new index (with wrapping)
+    let newIndex = currentIndex + direction;
+    if (newIndex < 0) {
+      newIndex = techItems.length - 1;
+    } else if (newIndex >= techItems.length) {
+      newIndex = 0;
+    }
+
+    // Select the new technology option
+    const newItem = techItems[newIndex] as HTMLElement;
+    const techType = newItem.dataset.techType as TechnologyType;
+    if (techType) {
+      this.selectTechnology(techType);
+      
+      // Scroll the item into view if it's outside the visible area
+      newItem.scrollIntoView({ 
+        behavior: 'smooth', 
+        block: 'nearest' 
+      });
+    }
   }
 
   /**

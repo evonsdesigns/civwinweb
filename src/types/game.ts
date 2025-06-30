@@ -214,6 +214,8 @@ export interface Player {
   gold: number;
   culture: number;
   technologies: TechnologyType[];
+  currentResearch?: TechnologyType; // Technology currently being researched
+  currentResearchProgress?: number; // Science points accumulated toward current research
   government: GovernmentType;
   revolutionTurns?: number; // Turns remaining in anarchy during revolution
   usedCityNames: string[]; // Track which city names have been used
@@ -430,6 +432,15 @@ export const GOVERNMENTS: Record<GovernmentType, Government> = {
   }
 };
 
+// Game event types
+export interface GameEvent {
+  type: 'technologyCompleted' | 'cityFounded' | 'unitDestroyed' | 'diplomaticAction';
+  playerId: string;
+  technologyType?: TechnologyType;
+  player?: Player;
+  // Add other event data as needed
+}
+
 export interface GameState {
   turn: number;
   currentPlayer: string;
@@ -439,6 +450,7 @@ export interface GameState {
   cities: City[];
   gamePhase: GamePhase;
   score: number;
+  events?: GameEvent[]; // Events that occurred this turn
 }
 
 export const GamePhase = {

@@ -13,6 +13,8 @@ import { UITemplateManager } from './utils/UITemplateManager.js';
 import { SettingsManager } from './utils/SettingsManager.js';
 import { SoundEffects } from './utils/SoundEffects.js';
 import { TechnologyUI } from './utils/TechnologyUI.js';
+import { ScienceAdvisorModal } from './renderer/ScienceAdvisorModal.js';
+import { TechnologyDiscoveryModal } from './renderer/TechnologyDiscoveryModal.js';
 import { MapScenario, UnitType } from './types/game.js';
 
 class CivWinApp {
@@ -25,6 +27,9 @@ class CivWinApp {
   private inputHandler: InputHandler;
   private musicPlayer: MusicPlayer;
   private settingsManager: SettingsManager;
+  private scienceAdvisorModal: ScienceAdvisorModal | null = null;
+  private technologyDiscoveryModal: TechnologyDiscoveryModal | null = null;
+  private isTechnologyDiscoveryInProgress = false; // Flag to prevent science advisor popup during discovery
   private canvas: HTMLCanvasElement;
   private minimapCanvas: HTMLCanvasElement;
   private currentScenario: MapScenario = 'random';
@@ -46,7 +51,7 @@ class CivWinApp {
     this.renderer = new Renderer(this.canvas);
     this.gameRenderer = new GameRenderer(this.renderer);
     this.minimap = new Minimap(this.minimapCanvas, this.renderer, () => this.requestRender());
-    this.status = new Status();
+    this.status = new Status(this.game);
     this.cityView = new CityView(this.game);
     this.musicPlayer = new MusicPlayer();
     this.settingsManager = SettingsManager.getInstance();
@@ -177,6 +182,11 @@ class CivWinApp {
       console.log('Game phase changed', phase);
       this.updateUI();
       this.requestRender();
+    });
+
+    this.game.on('researchSelectionRequired', (data: any) => {
+      console.log('Research selection required', data);
+      this.handleResearchSelectionRequired(data);
     });
   }
 
@@ -477,6 +487,33 @@ class CivWinApp {
         this.hideScenarioModal();
       }
     });
+
+    // Add keyboard handler for Enter/Space to start game
+    const keydownHandler = (event: KeyboardEvent) => {
+      if (newModal && (newModal as HTMLElement).style.display === 'flex') {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          const selectedScenario = document.querySelector('input[name="scenario"]:checked') as HTMLInputElement;
+          if (selectedScenario) {
+            const scenarioValue = selectedScenario.value as MapScenario;
+            this.currentScenario = scenarioValue;
+            console.log(`Starting new game with ${scenarioValue} scenario`);
+            
+            // Initialize the game with the selected scenario
+            this.initializeGame();
+            
+            // Hide the modal
+            this.hideScenarioModal();
+            
+            // Force a re-render
+            this.requestRender();
+            
+            document.removeEventListener('keydown', keydownHandler);
+          }
+        }
+      }
+    };
+    document.addEventListener('keydown', keydownHandler);
   }
 
   // Setup settings modal event listeners
@@ -526,6 +563,19 @@ class CivWinApp {
         this.hideSettingsModal();
       }
     });
+
+    // Add keyboard handler for Enter/Space to apply settings
+    const keydownHandler = (event: KeyboardEvent) => {
+      if (newModal && (newModal as HTMLElement).style.display === 'flex') {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          this.applySettings();
+          this.hideSettingsModal();
+          document.removeEventListener('keydown', keydownHandler);
+        }
+      }
+    };
+    document.addEventListener('keydown', keydownHandler);
 
     // Handle range input updates
     newModal.addEventListener('input', (e) => {
@@ -671,6 +721,102 @@ class CivWinApp {
     SoundEffects.playInvalidActionSound();
   }
 
+  /**
+   * Initialize the Science Advisor modal
+   */
+  public initializeScienceAdvisorModal(): void {
+    console.log('Initializing Science Advisor modal...');
+    try {
+      this.scienceAdvisorModal = new ScienceAdvisorModal();
+      console.log('Science Advisor modal initialized successfully');
+    } catch (error) {
+      console.error('Error initializing Science Advisor modal:', error);
+      this.scienceAdvisorModal = null;
+    }
+  }
+
+  /**
+   * Initialize the Technology Discovery modal
+   */
+  public initializeTechnologyDiscoveryModal(): void {
+    console.log('Initializing Technology Discovery modal...');
+    try {
+      this.technologyDiscoveryModal = new TechnologyDiscoveryModal();
+      console.log('Technology Discovery modal initialized successfully');
+    } catch (error) {
+      console.error('Error initializing Technology Discovery modal:', error);
+      this.technologyDiscoveryModal = null;
+    }
+  }
+
+  /**
+   * Process game events that occurred during the turn
+   */
+  private processGameEvents(gameState: any): void {
+    if (!gameState.events || gameState.events.length === 0) return;
+
+    gameState.events.forEach((event: any) => {
+      switch (event.type) {
+        case 'technologyCompleted':
+          this.handleTechnologyCompleted(event);
+          break;
+        // Add other event types as needed
+      }
+    });
+
+    // Clear events after processing
+    gameState.events = [];
+  }
+
+  /**
+   * Handle technology completion event
+   */
+  private handleTechnologyCompleted(event: any): void {
+    console.log('Technology completed:', event.technologyType, 'for player:', event.playerId);
+    
+    // Complete the research in the game
+    const success = this.game.researchTechnology(event.playerId, event.technologyType);
+    if (!success) {
+      console.error('Failed to complete research for technology:', event.technologyType);
+      return;
+    }
+
+    // Show discovery modal if this is a human player
+    if (event.player && event.player.isHuman && this.technologyDiscoveryModal) {
+      // Set flag to prevent automatic research selection during discovery
+      this.isTechnologyDiscoveryInProgress = true;
+      
+      this.technologyDiscoveryModal.show(event.technologyType, () => {
+        // Clear the flag when discovery modal is done
+        this.isTechnologyDiscoveryInProgress = false;
+        
+        // After discovery modal closes, check if we need to prompt for new research
+        const currentPlayer = this.game.getGameState().players.find(p => p.id === event.playerId);
+        if (currentPlayer && currentPlayer.isHuman && !currentPlayer.currentResearch) {
+          // Prompt for new research selection
+          this.promptForNewResearch(currentPlayer);
+        }
+      });
+    }
+  }
+
+  /**
+   * Prompt player to select new research
+   */
+  private promptForNewResearch(player: any): void {
+    // Use Science Advisor modal for research selection
+    if (this.scienceAdvisorModal) {
+      this.scienceAdvisorModal.show(this.game, player, (technologyType) => {
+        // Set the selected technology as current research
+        const success = this.game.setCurrentResearch(player.id, technologyType);
+        if (success) {
+          console.log(`Player ${player.id} set current research to: ${technologyType}`);
+          this.updateUI();
+        }
+      });
+    }
+  }
+
   // Preload unit and city sprites for better performance
   private async preloadSprites(gameState: any): Promise<void> {
     try {
@@ -695,6 +841,9 @@ class CivWinApp {
   // Update UI elements
   private updateUI(): void {
     const gameState = this.game.getGameState();
+    
+    // Process game events first
+    this.processGameEvents(gameState);
     
     // Update turn counter
     const turnCounter = document.querySelector('#turn-counter');
@@ -797,6 +946,40 @@ class CivWinApp {
     this.requestRender();
   }
 
+  // Handle research selection requirement
+  private handleResearchSelectionRequired(data: { playerId: string, player: any }): void {
+    console.log(`Research selection required for player: ${data.playerId}`);
+    
+    // Skip if technology discovery is currently in progress
+    if (this.isTechnologyDiscoveryInProgress) {
+      console.log('Skipping research selection - technology discovery in progress');
+      return;
+    }
+    
+    // Use Science Advisor modal for automatic prompts
+    if (this.scienceAdvisorModal) {
+      this.scienceAdvisorModal.show(this.game, data.player, (technologyType) => {
+        // Set the selected technology as current research (don't immediately research it)
+        const success = this.game.setCurrentResearch(data.playerId, technologyType);
+        if (success) {
+          console.log(`Player ${data.playerId} set current research to: ${technologyType}`);
+          // Update UI to reflect the current research change
+          this.updateUI();
+        }
+      });
+    } else {
+      console.error('Science Advisor modal not initialized, falling back to regular modal');
+      // Fallback to regular modal
+      TechnologyUI.openTechnologySelection(this.game, data.player, (technologyType) => {
+        const success = this.game.setCurrentResearch(data.playerId, technologyType);
+        if (success) {
+          console.log(`Player ${data.playerId} set current research to: ${technologyType}`);
+          this.updateUI();
+        }
+      });
+    }
+  }
+
   // Handle unit selection from queue
   private handleUnitSelected(data: { unit: any, unitIndex: number, totalUnits: number }): void {
     const { unit } = data;
@@ -876,6 +1059,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     
     // Initialize the app after templates are loaded
     const app = new CivWinApp();
+    
+    // Initialize Science Advisor modal after app is created
+    app.initializeScienceAdvisorModal();
+    
+    // Initialize Technology Discovery modal after app is created
+    app.initializeTechnologyDiscoveryModal();
+    
     app.start();
 
     // Make app globally accessible for debugging
