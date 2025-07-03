@@ -11,6 +11,7 @@ export class GameRenderer {
   private selectedTile: { x: number, y: number } | null = null;
   private selectedUnit: Unit | null = null;
   private currentWorldMap: Tile[][] = []; // Cache the world map for connection analysis
+  private currentGameState: GameState | null = null; // Cache the game state for city checks
   private readonly tileSize = 48; // Fixed tile size for terrain sprites
   private blinkState: boolean = false; // Track blinking state for current unit
 
@@ -28,6 +29,8 @@ export class GameRenderer {
 
     // Cache the world map for connection analysis
     this.currentWorldMap = gameState.worldMap;
+    // Cache the game state for city checks
+    this.currentGameState = gameState;
 
     // Render map tiles
     this.renderMap(gameState.worldMap);
@@ -1092,6 +1095,11 @@ export class GameRenderer {
 
   // Check if unit should be rendered (for blinking effect)
   private shouldRenderUnit(unit: Unit): boolean {
+    // Hide fortified units inside cities from the main map view
+    if (unit.fortified && this.isUnitInCity(unit)) {
+      return false;
+    }
+    
     // If this is the selected unit and blinking is enabled, check blink state
     if (this.selectedUnit && this.selectedUnit.id === unit.id) {
       // Fortified, fortifying, sleeping, or road-building units should never blink
@@ -1195,6 +1203,16 @@ export class GameRenderer {
       screenPos.y + 14,
       '#FFFFFF',
       '12px Arial'
+    );
+  }
+
+  // Check if a unit is inside a city
+  private isUnitInCity(unit: Unit): boolean {
+    if (!this.currentGameState) return false;
+    
+    // Check if there's a city at the unit's position
+    return this.currentGameState.cities.some(city => 
+      city.position.x === unit.position.x && city.position.y === unit.position.y
     );
   }
 }

@@ -10,6 +10,7 @@ import { CIVILIZATION_DEFINITIONS, CivilizationType, getAllCivilizations, getCiv
 import { AIPlayer } from './AIPlayer';
 import { SoundEffects } from '../utils/SoundEffects';
 import { ProductionManager } from './ProductionManager';
+import { CityGrowthSystem } from './CityGrowthSystem';
 
 export class Game {
   private gameState: GameState;
@@ -739,10 +740,15 @@ export class Game {
       buildings: [],
       production: null,
       food: 0,
+      foodStorage: 0,
+      foodStorageCapacity: 0,
       production_points: 0,
       science: 0,
       culture: 0
     };
+
+    // Initialize food storage system
+    CityGrowthSystem.initializeCityFoodStorage(city);
 
     this.gameState.cities.push(city);
     
@@ -1802,5 +1808,14 @@ export class Game {
     });
 
     return true;
+  }
+
+  // Initialize food storage for all existing cities (for backward compatibility)
+  public initializeFoodStorageForExistingCities(): void {
+    this.gameState.cities.forEach(city => {
+      if (city.foodStorageCapacity === undefined) {
+        CityGrowthSystem.initializeCityFoodStorage(city);
+      }
+    });
   }
 }

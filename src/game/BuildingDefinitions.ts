@@ -188,6 +188,18 @@ export const BUILDING_DEFINITIONS: Record<BuildingType, BuildingStats> = {
     }
   },
 
+  [BuildingType.SEWER_SYSTEM]: {
+    name: 'Sewer System',
+    description: 'Sanitation system that allows cities to grow beyond size 12. Requires Aqueduct.',
+    productionCost: 120,
+    maintenanceCost: 2,
+    requiredTechnology: TechnologyType.MEDICINE,
+    requiredBuilding: BuildingType.AQUEDUCT,
+    effects: {
+      populationGrowthLimit: 12 // Cities can't grow past 12 without this
+    }
+  },
+
   [BuildingType.FACTORY]: {
     name: 'Factory',
     description: 'Industrial facility that increases production by 50%.',

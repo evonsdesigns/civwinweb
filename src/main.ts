@@ -215,6 +215,11 @@ class CivWinApp {
         this.requestRender();
       });
     }
+
+    // Listen for unit selection from city modal
+    document.addEventListener('cityUnitSelected', (event: any) => {
+      this.handleCityUnitSelected(event.detail.unit);
+    });
   }
 
   /**
@@ -1074,6 +1079,33 @@ class CivWinApp {
     this.requestRender();
     
     console.log(`Selected unit ${unit.id} at position (${unit.position.x}, ${unit.position.y})`);
+  }
+
+  // Handle unit selection from city modal
+  private handleCityUnitSelected(unit: any): void {
+    console.log('Unit selected from city modal:', unit.type, unit.id);
+    
+    // Wake and activate the unit in the game logic
+    // This will unfortify the unit, add it to move queue, and make it current
+    const activated = this.game.wakeAndActivateUnit(unit.id);
+    
+    if (activated) {
+      // Select the unit in the game renderer
+      this.gameRenderer.selectUnit(unit);
+      
+      // Only center camera if the unit is outside the current viewport
+      if (!this.isUnitPositionVisible(unit.position.x, unit.position.y)) {
+        this.renderer.centerOn(unit.position.x, unit.position.y);
+      }
+      
+      // Update status window
+      this.status.setSelectedUnit(unit);
+      
+      // Re-render to show selection and camera position
+      this.requestRender();
+    } else {
+      console.warn('Failed to activate unit:', unit.id);
+    }
   }
 
   // Handle unit deselection

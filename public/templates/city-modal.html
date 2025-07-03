@@ -8,6 +8,13 @@
       <button class="city-close" id="city-close">×</button>
     </div>
     <div class="city-content">
+      <!-- Population Display Section (at top) -->
+      <div class="city-population-display">
+        <div class="population-icons" id="population-icons">
+          <!-- Individual population figures will be inserted here -->
+        </div>
+      </div>
+      
       <!-- City Map Section -->
       <div class="city-map-section">
         <h3>City Radius</h3>
@@ -42,6 +49,20 @@
             <div class="resource-value" id="food-display">
               <span class="resource-amount" id="city-food">2</span>
               <span class="resource-surplus" id="food-surplus"></span>
+            </div>
+          </div>
+          
+          <!-- Food Storage Box -->
+          <div class="resource-row food-storage-row">
+            <div class="resource-header">
+              <span class="resource-icon">📦</span>
+              <span class="resource-label">Food Storage</span>
+            </div>
+            <div class="food-storage-container">
+              <div class="food-storage-units" id="food-storage-units"></div>
+              <div class="food-storage-text">
+                <span id="food-storage-current">0</span> / <span id="food-storage-capacity">20</span>
+              </div>
             </div>
           </div>
           

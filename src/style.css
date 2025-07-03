@@ -1041,9 +1041,51 @@ button:disabled {
 
 .population-details {
   display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.population-summary {
+  background: #f0f0f0;
+  border: 1px inset #c0c0c0;
+  padding: 6px 8px;
+  border-radius: 2px;
+}
+
+.population-info {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2px;
+}
+
+.population-info:last-child {
+  margin-bottom: 0;
+}
+
+.population-label {
+  font-size: 10px;
+  color: #666;
+  font-weight: normal;
+}
+
+.population-value {
+  font-size: 11px;
+  color: #000;
+  font-weight: bold;
+}
+
+.population-separator {
+  height: 1px;
+  background: #c0c0c0;
+  margin: 4px 0;
+}
+
+.population-units {
+  display: flex;
   flex-wrap: wrap;
   gap: 4px;
-  margin-top: 4px;
 }
 
 .population-unit {
@@ -1270,6 +1312,20 @@ button:disabled {
   border-bottom: 1px solid #D2B48C;
   font-size: 11px;
   color: #000; /* Black text for clarity */
+}
+
+.unit-item.clickable {
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.unit-item.clickable:hover {
+  background-color: rgba(139, 69, 19, 0.2); /* Light brown hover effect */
+  color: #000;
+}
+
+.unit-item.clickable:active {
+  background-color: rgba(139, 69, 19, 0.3); /* Darker brown when clicked */
 }
 
 .building-item:last-child,
@@ -1787,6 +1843,60 @@ button:disabled {
   font-size: 14px;
 }
 
+/* Food Storage Container and Units Display */
+.food-storage-container {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 100%;
+}
+
+.food-storage-units {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 4px;
+  background: #404040;
+  border: 1px inset #808080;
+  border-radius: 2px;
+  min-height: 20px;
+}
+
+.food-storage-row {
+  display: flex;
+  gap: 1px;
+  justify-content: flex-start;
+  flex-wrap: wrap;
+}
+
+.food-unit {
+  font-size: 12px;
+  line-height: 1;
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  text-align: center;
+  border-radius: 1px;
+}
+
+.food-unit.filled {
+  color: #FFD700; /* Golden wheat color */
+}
+
+.food-unit.empty {
+  color: #666666; /* Gray empty squares */
+  opacity: 0.5;
+}
+
+.food-storage-text {
+  font-size: 11px;
+  color: #ffffff;
+  text-align: center;
+  font-weight: bold;
+}
+
+
+
 /* Technology Selection Modal Styles */
 .technology-dialog {
   background: #c0c0c0;
@@ -2253,7 +2363,46 @@ button:disabled {
   border-left: 3px solid #4a8a6a;
 }
 
-.production-option.currently-producing .production-option-name {
-  color: #88cc88;
-  font-weight: bold;
+/* City Population Display at top */
+.city-population-display {
+  width: 100%;
+  padding: 10px;
+  background: linear-gradient(135deg, #1a5490 0%, #2563eb 100%);
+  border-radius: 8px;
+  margin-bottom: 15px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.population-icons {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px;
+  min-height: 40px;
+  align-items: center;
+}
+
+.population-icon {
+  font-size: 24px;
+  color: #ffffff;
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
+  cursor: default;
+  transition: transform 0.1s ease;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.3));
+}
+
+.population-icon:hover {
+  transform: scale(1.1);
+}
+
+.population-icon.happy {
+  color: #fbbf24;
+}
+
+.population-icon.content {
+  color: #ffffff;
+}
+
+.population-icon.unhappy {
+  color: #ef4444;
 }

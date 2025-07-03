@@ -6,6 +6,8 @@ import { ProductionSelectionModal } from './ProductionSelectionModal';
 import { UNIT_DEFINITIONS } from '../game/UnitDefinitions';
 import { BUILDING_DEFINITIONS } from '../game/BuildingDefinitions';
 import { TerrainManager } from '../terrain/index';
+import { CityGrowthSystem } from '../game/CityGrowthSystem';
+import { getCityPopulationDisplay } from '../utils/CityPopulationDisplay';
 
 // Enhanced resource calculation interface
 interface CityResources {
@@ -33,6 +35,9 @@ export class CityView {
   private cityTax: HTMLElement;
   private foodSurplus: HTMLElement;
   private productionSurplus: HTMLElement;
+  private foodStorageUnits: HTMLElement;
+  private foodStorageCurrent: HTMLElement;
+  private foodStorageCapacity: HTMLElement;
   private populationDetails: HTMLElement;
   private currentProduction: HTMLElement;
   private productionTurns: HTMLElement;
@@ -67,6 +72,9 @@ export class CityView {
     this.cityTax = document.getElementById('city-tax')!;
     this.foodSurplus = document.getElementById('food-surplus')!;
     this.productionSurplus = document.getElementById('production-surplus')!;
+    this.foodStorageUnits = document.getElementById('food-storage-units')!;
+    this.foodStorageCurrent = document.getElementById('food-storage-current')!;
+    this.foodStorageCapacity = document.getElementById('food-storage-capacity')!;;
     this.populationDetails = document.getElementById('population-details')!;
     this.currentProduction = document.getElementById('current-production')!;
     this.productionTurns = document.getElementById('production-turns')!;
@@ -105,6 +113,7 @@ export class CityView {
 
     // Add click handler for city map
     this.cityMapCanvas.addEventListener('click', (event) => this.handleCityMapClick(event));
+    this.cityMapCanvas.addEventListener('dblclick', (event) => this.handleCityMapDoubleClick(event));
     this.cityMapCanvas.style.cursor = 'pointer';
 
     // Close on overlay click
@@ -172,10 +181,13 @@ export class CityView {
 
     // Update city name and population in title
     this.cityNameTitle.textContent = this.currentCity.name;
-    this.cityPopulationTitle.textContent = `(Pop: ${this.currentCity.population})`;
+    this.cityPopulationTitle.textContent = `(Pop: ${getCityPopulationDisplay(this.currentCity.population)})`;
 
     // Update basic city stats
-    this.cityPopulation.textContent = this.currentCity.population.toString();
+    this.cityPopulation.textContent = getCityPopulationDisplay(this.currentCity.population);
+    
+    // Update population icons at top
+    this.updatePopulationIcons();
     
     // Calculate detailed city output
     const resources = this.calculateDetailedCityResources();
@@ -384,6 +396,9 @@ export class CityView {
       this.updateSurplusDisplay(this.foodSurplus, resources.foodSurplus);
     }
 
+    // Update food storage display
+    this.updateFoodStorageDisplay();
+
     // Update production display
     this.cityProduction.textContent = resources.production.toString();
     if (this.productionSurplus) {
@@ -400,20 +415,92 @@ export class CityView {
       (surplus > 0 ? 'positive' : surplus < 0 ? 'negative' : 'neutral');
   }
 
+  private updateFoodStorageDisplay(): void {
+    if (!this.currentCity) return;
+
+    // Initialize food storage if not already done
+    if (this.currentCity.foodStorageCapacity === undefined) {
+      CityGrowthSystem.initializeCityFoodStorage(this.currentCity);
+    }
+
+    // Update food storage numbers
+    this.foodStorageCurrent.textContent = this.currentCity.foodStorage.toString();
+    this.foodStorageCapacity.textContent = this.currentCity.foodStorageCapacity.toString();
+
+    // Clear and rebuild food storage units display
+    this.foodStorageUnits.innerHTML = '';
+    
+    // Calculate how many units to show per row to fit nicely
+    const unitsPerRow = Math.min(10, this.currentCity.foodStorageCapacity); // Max 10 per row
+    const totalRows = Math.ceil(this.currentCity.foodStorageCapacity / unitsPerRow);
+    
+    for (let row = 0; row < totalRows; row++) {
+      const rowDiv = document.createElement('div');
+      rowDiv.className = 'food-storage-row';
+      
+      const startIndex = row * unitsPerRow;
+      const endIndex = Math.min(startIndex + unitsPerRow, this.currentCity.foodStorageCapacity);
+      
+      for (let i = startIndex; i < endIndex; i++) {
+        const unitDiv = document.createElement('span');
+        unitDiv.className = 'food-unit';
+        
+        if (i < this.currentCity.foodStorage) {
+          // Filled unit
+          unitDiv.textContent = '🌾';
+          unitDiv.classList.add('filled');
+        } else {
+          // Empty unit
+          unitDiv.textContent = '⬜';
+          unitDiv.classList.add('empty');
+        }
+        
+        rowDiv.appendChild(unitDiv);
+      }
+      
+      this.foodStorageUnits.appendChild(rowDiv);
+    }
+  }
+
   private updatePopulationBreakdown(): void {
     if (!this.currentCity || !this.populationDetails) return;
 
     // Clear existing population units
     this.populationDetails.innerHTML = '';
 
+    // Add population summary
+    const popSummary = document.createElement('div');
+    popSummary.className = 'population-summary';
+    popSummary.innerHTML = `
+      <div class="population-info">
+        <span class="population-label">City Size:</span>
+        <span class="population-value">${this.currentCity.population}</span>
+      </div>
+      <div class="population-info">
+        <span class="population-label">Population:</span>
+        <span class="population-value">${getCityPopulationDisplay(this.currentCity.population)}</span>
+      </div>
+    `;
+    this.populationDetails.appendChild(popSummary);
+
+    // Add separator
+    const separator = document.createElement('div');
+    separator.className = 'population-separator';
+    this.populationDetails.appendChild(separator);
+
     // Create population units (simplified - all workers for now)
+    const unitsContainer = document.createElement('div');
+    unitsContainer.className = 'population-units';
+    
     for (let i = 0; i < this.currentCity.population; i++) {
       const popUnit = document.createElement('div');
       popUnit.className = 'population-unit worker';
       popUnit.textContent = '👷';
-      popUnit.title = 'Worker - produces food and resources';
-      this.populationDetails.appendChild(popUnit);
+      popUnit.title = `Worker ${i + 1} - produces food and resources`;
+      unitsContainer.appendChild(popUnit);
     }
+    
+    this.populationDetails.appendChild(unitsContainer);
   }
 
   private updateTradeBreakdown(resources: CityResources): void {
@@ -495,8 +582,23 @@ export class CityView {
     this.unitsList.innerHTML = '';
     unitsInCity.forEach(unit => {
       const unitItem = document.createElement('div');
-      unitItem.className = 'unit-item';
+      unitItem.className = 'unit-item clickable';
       unitItem.textContent = `${unit.type}${unit.fortified ? ' (Fortified)' : ''}`;
+      
+      // Add click handler to select the unit
+      unitItem.addEventListener('click', () => {
+        this.selectUnit(unit);
+      });
+      
+      // Add hover effect styling
+      unitItem.style.cursor = 'pointer';
+      unitItem.addEventListener('mouseenter', () => {
+        unitItem.style.backgroundColor = 'rgba(255, 255, 255, 0.1)';
+      });
+      unitItem.addEventListener('mouseleave', () => {
+        unitItem.style.backgroundColor = '';
+      });
+      
       this.unitsList.appendChild(unitItem);
     });
   }
@@ -506,7 +608,7 @@ export class CityView {
 
     const canvas = this.cityMapCanvas;
     const ctx = this.cityMapContext;
-    const tileSize = 28; // Increased tile size to accommodate resource displays
+    const tileSize = 32; // Increased tile size to accommodate repeated resource symbols
     
     // Clear canvas
     ctx.fillStyle = '#000';
@@ -616,6 +718,9 @@ export class CityView {
       // Render resource yields on the tile
       this.renderTileResources(ctx, screenX, screenY, tileSize, baseYields);
 
+      // Render improvements (roads, irrigation, mines, etc.)
+      this.renderTileImprovements(ctx, screenX, screenY, tileSize, terrain);
+
       // Highlight city center
       if (dx === 0 && dy === 0) {
         ctx.strokeStyle = '#ffffff';
@@ -651,7 +756,7 @@ export class CityView {
     ctx.fillStyle = '#ffffff';
     
     const selectedCount = this.currentCity?.workedTiles?.length || 0;
-    const totalWorkable = this.currentCity?.population || 0;
+    const totalWorkable = this.currentCity?.population || 0; // Non-city-center tiles
     const isCustom = selectedCount > 0;
     
     ctx.fillText(
@@ -705,52 +810,154 @@ export class CityView {
       }
     }
     
+    // Add improvements bonuses
+    if (terrain.improvements && terrain.improvements.length > 0) {
+      for (const improvement of terrain.improvements) {
+        switch (improvement.type) {
+          case 'irrigation':
+            // Irrigation adds +1 food to grassland, plains, and desert
+            if (terrain.terrain === 'grassland' || terrain.terrain === 'plains' || terrain.terrain === 'desert') {
+              baseYields.food += 1;
+            }
+            break;
+            
+          case 'mine':
+            // Mines add +1 production to hills and mountains
+            if (terrain.terrain === 'hills' || terrain.terrain === 'mountains') {
+              baseYields.production += 1;
+            }
+            break;
+            
+          case 'road':
+            // Roads add +1 trade to any terrain that already produces trade
+            if (baseYields.trade > 0) {
+              baseYields.trade += 1;
+            }
+            break;
+            
+          case 'farm':
+            // Farms provide additional food bonus (usually on irrigated land)
+            baseYields.food += 1;
+            break;
+        }
+      }
+    }
+    
     return baseYields;
   }
 
   /**
    * Render resource yields on a tile
    */
-  private renderTileResources(ctx: CanvasRenderingContext2D, x: number, y: number, tileSize: number, yields: { food: number; production: number; trade: number }): void {
+  private renderTileResources(ctx: CanvasRenderingContext2D, x: number, y: number, _tileSize: number, yields: { food: number; production: number; trade: number }): void {
     const iconSize = 8;
     const margin = 2;
     
     ctx.font = '8px Arial';
     ctx.textAlign = 'center';
     
-    // Food (top-left) - wheat icon 🌾
+    // Food (top area) - wheat icon 🌾
     if (yields.food > 0) {
-      ctx.fillStyle = '#FFD700'; // Gold background for food
-      ctx.fillRect(x + margin, y + margin, iconSize, iconSize);
-      ctx.fillStyle = '#000000';
-      ctx.fillText('🌾', x + margin + iconSize/2, y + margin + iconSize - 1);
-      if (yields.food > 1) {
-        ctx.fillStyle = '#FFFFFF';
-        ctx.fillText(yields.food.toString(), x + margin + iconSize/2, y + margin + iconSize + 8);
+      for (let i = 0; i < Math.min(yields.food, 4); i++) { // Cap at 4 symbols to avoid overcrowding
+        const posX = x + margin + (i * (iconSize + 1));
+        ctx.fillStyle = '#FFD700'; // Gold background for food
+        ctx.fillRect(posX, y + margin, iconSize, iconSize);
+        ctx.fillStyle = '#000000';
+        ctx.fillText('🌾', posX + iconSize/2, y + margin + iconSize - 1);
       }
     }
     
-    // Production (top-right) - shield icon 🛡️
+    // Production (middle area) - shield icon 🛡️
     if (yields.production > 0) {
-      ctx.fillStyle = '#8B4513'; // Brown background for production
-      ctx.fillRect(x + tileSize - iconSize - margin, y + margin, iconSize, iconSize);
-      ctx.fillStyle = '#000000';
-      ctx.fillText('🛡️', x + tileSize - iconSize/2 - margin, y + margin + iconSize - 1);
-      if (yields.production > 1) {
-        ctx.fillStyle = '#FFFFFF';
-        ctx.fillText(yields.production.toString(), x + tileSize - iconSize/2 - margin, y + margin + iconSize + 8);
+      const startY = y + margin + iconSize + 2;
+      for (let i = 0; i < Math.min(yields.production, 4); i++) { // Cap at 4 symbols
+        const posX = x + margin + (i * (iconSize + 1));
+        ctx.fillStyle = '#8B4513'; // Brown background for production
+        ctx.fillRect(posX, startY, iconSize, iconSize);
+        ctx.fillStyle = '#000000';
+        ctx.fillText('🛡️', posX + iconSize/2, startY + iconSize - 1);
       }
     }
     
-    // Trade (bottom-center) - trade icon 💱
+    // Trade (bottom area) - trade icon 💱
     if (yields.trade > 0) {
-      ctx.fillStyle = '#4169E1'; // Blue background for trade
-      ctx.fillRect(x + tileSize/2 - iconSize/2, y + tileSize - iconSize - margin, iconSize, iconSize);
-      ctx.fillStyle = '#000000';
-      ctx.fillText('💱', x + tileSize/2, y + tileSize - margin - 1);
-      if (yields.trade > 1) {
-        ctx.fillStyle = '#FFFFFF';
-        ctx.fillText(yields.trade.toString(), x + tileSize/2, y + tileSize - margin + 8);
+      const startY = y + margin + (iconSize + 2) * 2;
+      for (let i = 0; i < Math.min(yields.trade, 4); i++) { // Cap at 4 symbols
+        const posX = x + margin + (i * (iconSize + 1));
+        ctx.fillStyle = '#4169E1'; // Blue background for trade
+        ctx.fillRect(posX, startY, iconSize, iconSize);
+        ctx.fillStyle = '#000000';
+        ctx.fillText('💱', posX + iconSize/2, startY + iconSize - 1);
+      }
+    }
+  }
+
+  /**
+   * Render improvements (roads, irrigation, mines, etc.) on a tile
+   */
+  private renderTileImprovements(ctx: CanvasRenderingContext2D, x: number, y: number, tileSize: number, terrain: any): void {
+    if (!terrain.improvements || terrain.improvements.length === 0) return;
+    
+    const iconSize = 8;
+    const margin = 1;
+    
+    ctx.font = '8px Arial';
+    ctx.textAlign = 'center';
+    
+    // Check for each improvement type and render appropriate icon
+    for (const improvement of terrain.improvements) {
+      switch (improvement.type) {
+        case 'road':
+          // Road - show as brown line across tile
+          ctx.strokeStyle = '#8B4513';
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.moveTo(x, y + tileSize/2);
+          ctx.lineTo(x + tileSize, y + tileSize/2);
+          ctx.moveTo(x + tileSize/2, y);
+          ctx.lineTo(x + tileSize/2, y + tileSize);
+          ctx.stroke();
+          break;
+          
+        case 'irrigation':
+          // Irrigation - show as blue wavy lines
+          ctx.strokeStyle = '#4169E1';
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          // Draw wavy lines to represent irrigation
+          for (let i = 0; i < 3; i++) {
+            const yPos = y + 8 + i * 4;
+            ctx.moveTo(x + 4, yPos);
+            ctx.quadraticCurveTo(x + tileSize/2, yPos - 2, x + tileSize - 4, yPos);
+          }
+          ctx.stroke();
+          break;
+          
+        case 'mine':
+          // Mine - show as pickaxe icon ⛏️ in bottom-left corner
+          ctx.fillStyle = 'rgba(0, 0, 0, 0.7)'; // Semi-transparent background
+          ctx.fillRect(x + margin, y + tileSize - iconSize - margin, iconSize, iconSize);
+          ctx.fillStyle = '#FFFFFF';
+          ctx.fillText('⛏️', x + margin + iconSize/2, y + tileSize - margin - 1);
+          break;
+          
+        case 'farm':
+          // Farm - show as green squares pattern
+          ctx.fillStyle = '#228B22';
+          for (let i = 0; i < 2; i++) {
+            for (let j = 0; j < 2; j++) {
+              ctx.fillRect(x + 6 + i * 8, y + 6 + j * 8, 4, 4);
+            }
+          }
+          break;
+          
+        case 'fortress':
+          // Fortress - show as castle icon 🏰 in center
+          ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+          ctx.fillRect(x + tileSize/2 - iconSize/2, y + tileSize/2 - iconSize/2, iconSize, iconSize);
+          ctx.fillStyle = '#FFFFFF';
+          ctx.fillText('🏰', x + tileSize/2, y + tileSize/2 + 2);
+          break;
       }
     }
   }
@@ -920,13 +1127,15 @@ export class CityView {
   private autoSelectOptimalTiles(): void {
     if (!this.currentCity) return;
 
+    // Calculate how many tiles the city should work (population = non-city-center tiles)
+    const maxWorkableTiles = this.currentCity.population; // This is the number of NON-city-center tiles
+
     // If user has made manual selections, don't interfere
     if (this.currentCity.workedTiles && this.currentCity.workedTiles.length > 0) {
       // Check if we need to add more tiles due to population growth
       const currentSelections = this.currentCity.workedTiles.length;
-      const maxTiles = this.currentCity.population;
       
-      if (currentSelections < maxTiles) {
+      if (currentSelections < maxWorkableTiles) {
         // Add optimal tiles to fill remaining slots
         this.fillRemainingWithOptimalTiles();
       }
@@ -936,10 +1145,10 @@ export class CityView {
     // No manual selection - auto-select optimal tiles based on population
     const optimalTiles = this.getOptimalWorkedTiles();
     this.currentCity.workedTiles = optimalTiles
-      .slice(0, this.currentCity.population)
+      .slice(0, maxWorkableTiles)
       .map(tile => ({ dx: tile.dx, dy: tile.dy }));
     
-    console.log(`Auto-selected ${this.currentCity.workedTiles.length} optimal tiles for city ${this.currentCity.name}`);
+    console.log(`Auto-selected ${this.currentCity.workedTiles.length} optimal tiles for city ${this.currentCity.name} (pop ${this.currentCity.population})`);
   }
 
   /**
@@ -949,8 +1158,8 @@ export class CityView {
     if (!this.currentCity || !this.currentCity.workedTiles) return;
 
     const currentSelections = this.currentCity.workedTiles;
-    const maxTiles = this.currentCity.population;
-    const slotsNeeded = maxTiles - currentSelections.length;
+    const maxWorkableTiles = this.currentCity.population; // Non-city-center tiles
+    const slotsNeeded = maxWorkableTiles - currentSelections.length;
 
     if (slotsNeeded <= 0) return;
 
@@ -967,7 +1176,7 @@ export class CityView {
       }
     }
 
-    console.log(`Auto-filled ${added} additional tiles for city growth`);
+    console.log(`Auto-filled ${added} additional tiles for city growth (pop ${this.currentCity.population})`);
   }
 
   /**
@@ -983,13 +1192,14 @@ export class CityView {
       this.currentCity.workedTiles = [];
     }
 
+    const maxWorkableTiles = newPopulation; // Non-city-center tiles
+
     if (newPopulation > oldPopulation) {
       // City grew - auto-select additional optimal tiles
       this.fillRemainingWithOptimalTiles();
     } else if (newPopulation < oldPopulation) {
       // City shrunk - remove excess tiles (remove least valuable first)
-      const maxTiles = newPopulation;
-      if (this.currentCity.workedTiles.length > maxTiles) {
+      if (this.currentCity.workedTiles.length > maxWorkableTiles) {
         // Get yields for all current tiles and sort by value
         const tilesWithYields = this.currentCity.workedTiles.map(({ dx, dy }) => {
           const yields = this.getTileYieldsAt(dx, dy) || { food: 0, production: 0, trade: 0 };
@@ -1002,10 +1212,10 @@ export class CityView {
         // Sort by priority (highest first) and keep only the best ones
         tilesWithYields.sort((a, b) => b.priority - a.priority);
         this.currentCity.workedTiles = tilesWithYields
-          .slice(0, maxTiles)
+          .slice(0, maxWorkableTiles)
           .map(({ dx, dy }) => ({ dx, dy }));
         
-        console.log(`City shrunk: removed ${tilesWithYields.length - maxTiles} least valuable tiles`);
+        console.log(`City shrunk: removed ${tilesWithYields.length - maxWorkableTiles} least valuable tiles`);
       }
     }
 
@@ -1041,7 +1251,7 @@ export class CityView {
         if (clickX >= screenX && clickX < screenX + tileSize &&
             clickY >= screenY && clickY < screenY + tileSize) {
           
-          // Skip city center (always worked)
+          // Skip city center (always worked, handled separately)
           if (dx === 0 && dy === 0) return;
           
           // Toggle tile selection
@@ -1070,12 +1280,14 @@ export class CityView {
     // Check if tile is currently selected
     const tileIndex = this.currentCity.workedTiles.findIndex(tile => tile.dx === dx && tile.dy === dy);
     
+    const maxWorkableTiles = this.currentCity.population; // Non-city-center tiles
+    
     if (tileIndex >= 0) {
       // Tile is selected, remove it
       this.currentCity.workedTiles.splice(tileIndex, 1);
     } else {
       // Tile is not selected, add it if we haven't reached the population limit
-      if (this.currentCity.workedTiles.length < this.currentCity.population) {
+      if (this.currentCity.workedTiles.length < maxWorkableTiles) {
         this.currentCity.workedTiles.push({dx, dy});
       } else {
         // Population limit reached - replace the oldest selected tile (queue behavior)
@@ -1084,7 +1296,7 @@ export class CityView {
       }
     }
 
-    console.log(`Tile (${dx}, ${dy}) selection toggled. Current worked tiles:`, this.currentCity.workedTiles);
+    console.log(`Tile (${dx}, ${dy}) selection toggled. Current worked tiles: ${this.currentCity.workedTiles.length}/${maxWorkableTiles} (pop ${this.currentCity.population})`);
     
     // Update resource calculations to reflect the new tile selection
     this.updateCityResourceDisplay();
@@ -1139,12 +1351,107 @@ export class CityView {
   public static shouldUpdateWorkedTiles(city: City): boolean {
     if (!city.workedTiles) return true;
     
+    const maxWorkableTiles = city.population; // Non-city-center tiles
+    
     // If population can work more tiles than currently selected
-    if (city.workedTiles.length < city.population) return true;
+    if (city.workedTiles.length < maxWorkableTiles) return true;
     
     // If population decreased and we have too many tiles
-    if (city.workedTiles.length > city.population) return true;
+    if (city.workedTiles.length > maxWorkableTiles) return true;
     
     return false;
+  }
+
+  /**
+   * Handle double-click on city map to reset tile selection and auto-select optimal tiles
+   */
+  private handleCityMapDoubleClick(event: MouseEvent): void {
+    if (!this.currentCity) return;
+
+    const canvas = this.cityMapCanvas;
+    const rect = canvas.getBoundingClientRect();
+    const clickX = event.clientX - rect.left;
+    const clickY = event.clientY - rect.top;
+    
+    const tileSize = 28;
+    const centerX = Math.floor(canvas.width / 2);
+    const centerY = Math.floor(canvas.height / 2);
+    
+    // Check if double-click is in the black area (outside working tiles)
+    let isInBlackArea = true;
+    
+    // Check if click is within any working tile
+    for (let dy = -2; dy <= 2; dy++) {
+      for (let dx = -2; dx <= 2; dx++) {
+        const distance = Math.max(Math.abs(dx), Math.abs(dy));
+        if (distance > 2) continue; // Skip tiles outside working radius
+        
+        const screenX = centerX + dx * tileSize - tileSize / 2;
+        const screenY = centerY + dy * tileSize - tileSize / 2;
+        
+        if (clickX >= screenX && clickX < screenX + tileSize &&
+            clickY >= screenY && clickY < screenY + tileSize) {
+          isInBlackArea = false;
+          break;
+        }
+      }
+      if (!isInBlackArea) break;
+    }
+    
+    // If double-click is in black area, reset and auto-select tiles
+    if (isInBlackArea) {
+      console.log('Double-click detected in black area - resetting tile selection');
+      
+      // Clear current manual selections
+      this.currentCity.workedTiles = [];
+      
+      // Auto-select optimal tiles
+      this.autoSelectOptimalTiles();
+      
+      // Re-render to show the changes
+      this.renderCityMap();
+      const resources = this.calculateDetailedCityResources();
+      this.updateResourceDisplay(resources);
+    }
+  }
+
+  /**
+   * Select a unit from the city unit list
+   */
+  private selectUnit(unit: any): void {
+    console.log('Selected unit from city:', unit.type, unit.id);
+    
+    // Close the city modal
+    this.close();
+    
+    // Emit a custom event that the main app can listen to
+    // This allows the main app to handle unit selection without direct coupling
+    const unitSelectEvent = new CustomEvent('cityUnitSelected', {
+      detail: { unit: unit }
+    });
+    document.dispatchEvent(unitSelectEvent);
+  }
+
+  private updatePopulationIcons(): void {
+    if (!this.currentCity) return;
+
+    const populationIconsContainer = document.getElementById('population-icons');
+    if (!populationIconsContainer) return;
+
+    // Clear existing icons
+    populationIconsContainer.innerHTML = '';
+
+    // Create one person icon for each city size point
+    for (let i = 0; i < this.currentCity.population; i++) {
+      const icon = document.createElement('div');
+      icon.className = 'population-icon content'; // Default to content citizens
+      icon.textContent = '👤'; // Person silhouette icon
+      icon.title = `Citizen ${i + 1}`;
+      
+      // TODO: In future, could differentiate happy/content/unhappy citizens
+      // For now, all citizens are content
+      
+      populationIconsContainer.appendChild(icon);
+    }
   }
 }

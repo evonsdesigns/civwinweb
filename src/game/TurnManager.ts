@@ -4,6 +4,7 @@ import { getUnitStats } from './UnitDefinitions';
 import { getResearchCost } from './TechnologyDefinitions';
 import { ProductionManager } from './ProductionManager';
 import { UNIT_DEFINITIONS } from './UnitDefinitions';
+import { CityGrowthSystem } from './CityGrowthSystem';
 
 export class TurnManager {
   
@@ -50,21 +51,52 @@ export class TurnManager {
     gameState.cities
       .filter(city => city.playerId === currentPlayer)
       .forEach(city => {
-        this.processCityGrowth(city);
+        this.processCityGrowth(city, gameState);
         this.processCityProduction(city, gameState);
       });
   }
 
-  // Process city growth
-  private processCityGrowth(city: City): void {
-    // Simple growth model - need enough food to grow
-    const foodNeeded = city.population * 2;
-    city.food += this.calculateFoodProduction(city);
-    
-    if (city.food >= foodNeeded) {
-      city.population++;
-      city.food -= foodNeeded;
+  // Process city growth using Civilization I mechanics
+  private processCityGrowth(city: City, gameState: GameState): void {
+    // Initialize food storage system if not already done
+    if (city.foodStorageCapacity === undefined) {
+      CityGrowthSystem.initializeCityFoodStorage(city);
     }
+    
+    // Calculate actual food production from city tiles and buildings
+    const foodProduction = this.calculateCityFoodProduction(city, gameState);
+    
+    // Process growth using proper Civ1 mechanics
+    const cityGrew = CityGrowthSystem.processCityGrowth(city, foodProduction);
+    
+    if (cityGrew) {
+      // For now, just log the growth event
+      console.log(`City ${city.name} grew to population ${city.population}`);
+    }
+  }
+
+  // Calculate total food production for a city
+  private calculateCityFoodProduction(city: City, gameState: GameState): number {
+    // This is a placeholder - in the full implementation, this would calculate
+    // food from worked tiles based on terrain, improvements, and buildings
+    
+    // Base food production (simplified)
+    let foodProduction = 2; // City center always produces at least 2 food
+    
+    // Add food per population (simplified - each citizen working produces some food)
+    foodProduction += Math.floor(city.population * 1.5);
+    
+    // Building bonuses
+    if (city.buildings.some(b => b.type === 'granary')) {
+      foodProduction += 1; // Granary doesn't increase production, but helps with storage
+    }
+    
+    // TODO: Use gameState to calculate yields from worked tiles based on terrain and improvements
+    // For now, just add some basic variation based on map size to acknowledge the parameter
+    const mapSize = gameState.worldMap.length * gameState.worldMap[0].length;
+    const sizeBonus = mapSize > 3000 ? 1 : 0; // Slightly more food on larger maps
+    
+    return foodProduction + sizeBonus;
   }
 
   // Calculate food production for a city

@@ -20,6 +20,8 @@ A browser-based strategy game inspired by Civilization 1, built with Vite, TypeS
 - **Right Click**: Move selected unit to target location
 - **Mouse Wheel**: Zoom in/out
 - **Drag**: Pan around the map
+- **City Minimap Click**: Select/deselect tiles to work in city view
+- **City Minimap Double-Click**: Reset tile selection and auto-select optimal tiles (click in black area outside working tiles)
 
 ### Keyboard Controls
 - **Arrow Keys**: Pan around the map
@@ -199,5 +201,7 @@ The city dialog now features a detailed Civilization 1-style interface with:
 - **Production management** - Change what the city is building
 - **Visual city radius** - See the tiles your city works
 - **Unit management** - View units stationed in the city
+- **Tile selection** - Click on tiles in the city minimap to manually select which tiles to work
+- **Auto-selection reset** - Double-click on the black area outside the working tiles to clear manual selections and auto-select optimal tiles based on food and production priority
 
 The dialog automatically adapts to show each civilization's unique visual theme while maintaining the classic Civilization 1 aesthetic.

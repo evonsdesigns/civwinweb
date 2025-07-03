@@ -177,6 +177,8 @@ export interface City {
   buildings: Building[];
   production: ProductionItem | null;
   food: number;
+  foodStorage: number; // Current food in storage box
+  foodStorageCapacity: number; // Max food storage needed for growth
   production_points: number;
   science: number;
   culture: number;
@@ -209,6 +211,7 @@ export const BuildingType = {
   BANK: 'bank',
   CATHEDRAL: 'cathedral',
   UNIVERSITY: 'university',
+  SEWER_SYSTEM: 'sewer_system',
   
   // Industrial buildings
   FACTORY: 'factory',

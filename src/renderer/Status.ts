@@ -2,6 +2,7 @@ import { GameState, Unit, City, Player } from '../types/game';
 import { getUnitStats, getUnitName } from '../game/UnitDefinitions';
 import { getTechnology, getResearchCost } from '../game/TechnologyDefinitions';
 import { TechnologyUI } from '../utils/TechnologyUI';
+import { getDisplayedPopulation } from '../utils/CityPopulationDisplay';
 import type { Game } from '../game/Game';
 
 export class Status {
@@ -172,10 +173,10 @@ export class Status {
     const currentPlayer = this.getCurrentPlayer();
     if (!currentPlayer) return;
 
-    // Calculate total population from all cities
+    // Calculate total population from all cities using displayed population mapping
     const totalPopulation = this.gameState.cities
       .filter(city => city.playerId === currentPlayer.id)
-      .reduce((total, city) => total + city.population, 0);
+      .reduce((total, city) => total + getDisplayedPopulation(city.population), 0);
 
     // Update population display
     const populationElement = document.getElementById('status-population');

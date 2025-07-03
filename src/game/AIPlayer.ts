@@ -2,6 +2,7 @@ import { GameState, Unit, City, Position, UnitType, TerrainType, Player } from '
 import { getUnitStats } from './UnitDefinitions';
 import { TerrainManager } from '../terrain/index';
 import { getCivilization } from './CivilizationDefinitions';
+import { CityGrowthSystem } from './CityGrowthSystem';
 
 export class AIPlayer {
   
@@ -393,10 +394,15 @@ export class AIPlayer {
       buildings: [],
       production: null,
       food: 0,
+      foodStorage: 0,
+      foodStorageCapacity: 0,
       production_points: 0,
       science: 0,
       culture: 0
     };
+    
+    // Initialize food storage system
+    CityGrowthSystem.initializeCityFoodStorage(city);
     
     gameState.cities.push(city);
     

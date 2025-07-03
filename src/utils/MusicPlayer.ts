@@ -51,7 +51,9 @@ export class MusicPlayer {
       '/src/audio/music/civwinweb-Technochtitlan Revealed.mp3',
       '/src/audio/music/civwinweb-Tenochtitlan Crumbles.mp3',
       '/src/audio/music/civwinweb-Tenochtitlan Empire.mp3',
-      '/src/audio/music/civwinweb-Tenochtitlan Hidden.mp3'
+      '/src/audio/music/civwinweb-Tenochtitlan Hidden.mp3',
+      '/src/audio/music/civwinweb-aristotles iris.mp3',
+      '/src/audio/music/civwinweb-artistotles dilemma.mp3'
     ];
     
     // Randomly shuffle the tracks array every time
