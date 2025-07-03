@@ -4,6 +4,7 @@ import { Renderer } from './renderer/Renderer.js';
 import { GameRenderer } from './renderer/GameRenderer.js';
 import { UnitSprites } from './renderer/UnitSprites.js';
 import { CitySprites } from './renderer/CitySprites.js';
+import { TechnologySprites } from './renderer/TechnologySprites.js';
 import { CityView } from './renderer/CityView.js';
 import { Minimap } from './renderer/Minimap.js';
 import { Status } from './renderer/Status.js';
@@ -90,10 +91,13 @@ class CivWinApp {
     /** Auto-start music player after a short delay */
     setTimeout(() => {
       this.musicPlayer.autoStart();
-      // Apply saved volume setting
-      const volume = this.settingsManager.getSetting('masterVolume');
-      this.musicPlayer.setVolume(volume / 100);
+      // Music player will load its own volume from settings
     }, 2000);
+
+    /** Setup event listeners for volume synchronization */
+    document.addEventListener('musicVolumeChanged', () => {
+      this.syncSettingsModalWithMusicPlayer();
+    });
 
     // Example usage of SettingsManager:
     // const volume = this.settingsManager.getSetting('masterVolume');
@@ -419,6 +423,11 @@ class CivWinApp {
       
       // Load current settings
       this.loadCurrentSettings();
+      
+      // Sync music player volume with settings
+      if (this.musicPlayer) {
+        this.musicPlayer.syncVolumeWithSettings();
+      }
     }
   }
 
@@ -599,6 +608,59 @@ class CivWinApp {
         }
       }
     });
+
+    // Add volume slider event listeners for live feedback
+    this.setupVolumeSliderListeners(newModal);
+  }
+
+  /**
+   * Setup volume slider listeners for live feedback
+   */
+  private setupVolumeSliderListeners(modal: Node): void {
+    const modalElement = modal as HTMLElement;
+    const masterVolumeSlider = modalElement.querySelector('#master-volume') as HTMLInputElement;
+    const musicVolumeSlider = modalElement.querySelector('#music-volume') as HTMLInputElement;
+    const effectsVolumeSlider = modalElement.querySelector('#effects-volume') as HTMLInputElement;
+    
+    const volumeValues = modalElement.querySelectorAll('.volume-value');
+    
+    // Master volume slider
+    if (masterVolumeSlider) {
+      masterVolumeSlider.addEventListener('input', (e) => {
+        const value = (e.target as HTMLInputElement).value;
+        if (volumeValues[0]) {
+          volumeValues[0].textContent = `${value}%`;
+        }
+      });
+    }
+    
+    // Music volume slider
+    if (musicVolumeSlider) {
+      musicVolumeSlider.addEventListener('input', (e) => {
+        const value = (e.target as HTMLInputElement).value;
+        if (volumeValues[1]) {
+          volumeValues[1].textContent = `${value}%`;
+        }
+        
+        // Live sync with music player without triggering settings save
+        if (this.musicPlayer) {
+          this.musicPlayer.updateVolumeUI(parseInt(value));
+        }
+      });
+    }
+    
+    // Effects volume slider
+    if (effectsVolumeSlider) {
+      effectsVolumeSlider.addEventListener('input', (e) => {
+        const value = (e.target as HTMLInputElement).value;
+        if (volumeValues[2]) {
+          volumeValues[2].textContent = `${value}%`;
+        }
+        
+        // Play test sound with new volume
+        SoundEffects.playInvalidActionSound();
+      });
+    }
   }
 
   // Load current settings into the modal
@@ -613,13 +675,21 @@ class CivWinApp {
     this.setInputValue('turn-timer', settings.turnTimer.toString());
     this.setSelectValue('ai-speed', settings.aiSpeed);
     this.setInputValue('master-volume', settings.masterVolume.toString());
+    this.setInputValue('music-volume', settings.musicVolume.toString());
+    this.setInputValue('effects-volume', settings.effectsVolume.toString());
     this.setCheckboxValue('music-enabled', settings.musicEnabled);
     this.setCheckboxValue('sound-effects', settings.soundEffects);
     
-    // Update volume display
-    const volumeValue = document.querySelector('.volume-value');
-    if (volumeValue) {
-      volumeValue.textContent = `${settings.masterVolume}%`;
+    // Update volume displays
+    const volumeValues = document.querySelectorAll('.volume-value');
+    if (volumeValues.length >= 1) {
+      volumeValues[0].textContent = `${settings.masterVolume}%`;
+    }
+    if (volumeValues.length >= 2) {
+      volumeValues[1].textContent = `${settings.musicVolume}%`;
+    }
+    if (volumeValues.length >= 3) {
+      volumeValues[2].textContent = `${settings.effectsVolume}%`;
     }
   }
 
@@ -633,6 +703,8 @@ class CivWinApp {
       turnTimer: parseInt(this.getInputValue('turn-timer') || '60'),
       aiSpeed: this.getSelectValue('ai-speed') as 'slow' | 'normal' | 'fast',
       masterVolume: parseInt(this.getInputValue('master-volume') || '80'),
+      musicVolume: parseInt(this.getInputValue('music-volume') || '70'),
+      effectsVolume: parseInt(this.getInputValue('effects-volume') || '80'),
       musicEnabled: this.getCheckboxValue('music-enabled'),
       soundEffects: this.getCheckboxValue('sound-effects')
     };
@@ -644,10 +716,10 @@ class CivWinApp {
     
     // Apply music volume immediately
     if (this.musicPlayer) {
-      this.musicPlayer.setVolume(newSettings.masterVolume / 100);
+      this.musicPlayer.setVolume(newSettings.musicVolume / 100);
     }
     
-    // Play a test sound to demonstrate the new volume level
+    // Play a test sound to demonstrate the new effects volume level
     SoundEffects.playVolumeTestSound();
     
     // Note: Sound effects volume is automatically applied when SoundEffects.playSound() is called
@@ -824,7 +896,7 @@ class CivWinApp {
       const playerColors = gameState.players.map((player: any) => player.color);
       
       // Define unit types that have custom sprites
-      const unitTypesWithSprites = [UnitType.SETTLER];
+      const unitTypesWithSprites = [UnitType.SETTLERS];
       
       // Preload unit sprites for all player colors and unit types
       await UnitSprites.preloadSprites(unitTypesWithSprites, playerColors, 48);
@@ -832,7 +904,10 @@ class CivWinApp {
       // Preload city sprites for all player colors
       await CitySprites.preloadSprites(playerColors, 48);
       
-      console.log('Unit and city sprites preloaded successfully');
+      // Preload technology sprites for the UI
+      await TechnologySprites.preloadSprites(48);
+      
+      console.log('Unit, city, and technology sprites preloaded successfully');
     } catch (error) {
       console.warn('Failed to preload sprites:', error);
     }
@@ -1044,6 +1119,25 @@ class CivWinApp {
     this.gameRenderer.render(gameState, showGrid);
     this.minimap.updateGameState(gameState);
     this.status.updateGameState(gameState);
+  }
+
+  /**
+   * Sync the settings modal music volume slider with the music player's current volume
+   */
+  private syncSettingsModalWithMusicPlayer(): void {
+    if (!this.musicPlayer) return;
+    
+    const settingsModal = document.querySelector('#settings-modal') as HTMLElement;
+    if (!settingsModal || settingsModal.style.display === 'none') return;
+    
+    const musicVolumeSlider = settingsModal.querySelector('#music-volume') as HTMLInputElement;
+    const volumeValues = settingsModal.querySelectorAll('.volume-value');
+    
+    if (musicVolumeSlider && volumeValues[1]) {
+      const currentVolume = Math.round(this.musicPlayer.getVolume() * 100);
+      musicVolumeSlider.value = currentVolume.toString();
+      volumeValues[1].textContent = `${currentVolume}%`;
+    }
   }
 }
 

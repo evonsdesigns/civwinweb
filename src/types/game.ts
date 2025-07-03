@@ -30,6 +30,7 @@ export interface ScenarioConfig {
 export interface Tile {
   position: Position;
   terrain: TerrainType;
+  terrainVariant?: TerrainVariant; // For shield grassland/river variants
   resources?: ResourceType[];
   unit?: Unit;
   city?: City;
@@ -38,13 +39,17 @@ export interface Tile {
 
 export const TerrainType = {
   GRASSLAND: 'grassland',
+  PLAINS: 'plains',
   DESERT: 'desert',
   FOREST: 'forest',
   HILLS: 'hills',
   MOUNTAINS: 'mountains',
   OCEAN: 'ocean',
   RIVER: 'river',
-  JUNGLE: 'jungle'
+  JUNGLE: 'jungle',
+  SWAMP: 'swamp',
+  ARCTIC: 'arctic',
+  TUNDRA: 'tundra'
 };
 export type TerrainType = typeof TerrainType[keyof typeof TerrainType];
 
@@ -53,7 +58,13 @@ export const ResourceType = {
   GOLD: 'gold',
   IRON: 'iron',
   HORSES: 'horses',
-  FISH: 'fish'
+  FISH: 'fish',
+  SEAL: 'seal',
+  OASIS: 'oasis',
+  GAME: 'game',
+  COAL: 'coal',
+  GEM: 'gem',
+  OIL: 'oil'
 };
 export type ResourceType = typeof ResourceType[keyof typeof ResourceType];
 
@@ -73,6 +84,8 @@ export interface Unit {
   fortifying?: boolean; // True if unit is in the process of fortifying (first turn of 2-turn fortification)
   fortificationTurns?: number; // How many turns of fortification have been completed
   sleeping?: boolean; // True if unit is sleeping (skips turns until manually awakened)
+  buildingRoad?: boolean; // True if unit is in the process of building a road
+  roadBuildingTurns?: number; // How many turns of road building have been completed
 }
 
 export const UnitCategory = {
@@ -101,8 +114,8 @@ export interface UnitStats {
 
 export const UnitType = {
   // Non-combat units
-  SETTLER: 'settler',
-  DIPLOMAT: 'diplomat',
+  SETTLERS: 'settlers',
+  DIPLOMAT: 'diplomat', 
   CARAVAN: 'caravan',
 
   // Ancient military units
@@ -126,7 +139,7 @@ export const UnitType = {
 
   // Modern units
   ARMOR: 'armor',
-  MECHANIZED_INFANTRY: 'mechanized_infantry',
+  MECH_INF: 'mech_inf', // Mechanized Infantry
 
   // Naval units
   TRIREME: 'trireme',
@@ -167,6 +180,7 @@ export interface City {
   production_points: number;
   science: number;
   culture: number;
+  workedTiles?: Array<{dx: number, dy: number}>; // Manually selected worked tiles
 }
 
 export interface Building {
@@ -175,11 +189,38 @@ export interface Building {
 }
 
 export const BuildingType = {
+  // Basic buildings (available from start)
   BARRACKS: 'barracks',
+  
+  // Ancient buildings
   GRANARY: 'granary',
-  LIBRARY: 'library',
   TEMPLE: 'temple',
-  WALLS: 'walls'
+  PALACE: 'palace',
+  CITY_WALLS: 'walls',
+  
+  // Classical buildings
+  LIBRARY: 'library',
+  MARKETPLACE: 'marketplace',
+  COURTHOUSE: 'courthouse',
+  
+  // Medieval buildings
+  AQUEDUCT: 'aqueduct',
+  COLOSSEUM: 'colosseum',
+  BANK: 'bank',
+  CATHEDRAL: 'cathedral',
+  UNIVERSITY: 'university',
+  
+  // Industrial buildings
+  FACTORY: 'factory',
+  POWER_PLANT: 'power_plant',
+  
+  // Modern buildings
+  HYDRO_PLANT: 'hydro_plant',
+  NUCLEAR_PLANT: 'nuclear_plant',
+  MASS_TRANSIT: 'mass_transit',
+  RECYCLING_CENTER: 'recycling_center',
+  MANUFACTURING_PLANT: 'mfg_plant',
+  SDI_DEFENSE: 'sdi_defense'
 } as const;
 export type BuildingType = typeof BuildingType[keyof typeof BuildingType];
 
@@ -199,7 +240,8 @@ export const ImprovementType = {
   FARM: 'farm',
   MINE: 'mine',
   ROAD: 'road',
-  IRRIGATION: 'irrigation'
+  IRRIGATION: 'irrigation',
+  FORTRESS: 'fortress'
 } as const;
 export type ImprovementType = typeof ImprovementType[keyof typeof ImprovementType];
 
@@ -479,3 +521,10 @@ export interface RenderContext {
 
 // Re-export technology types
 export { Technology, TechnologyType, TechnologyEra };
+
+// Terrain variant types for special terrain configurations in Civ1
+export const TerrainVariant = {
+  NONE: 'none',
+  SHIELD: 'shield' // For shield grassland and shield river that produce +1 production
+} as const;
+export type TerrainVariant = typeof TerrainVariant[keyof typeof TerrainVariant];

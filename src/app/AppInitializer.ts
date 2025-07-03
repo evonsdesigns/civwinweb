@@ -6,7 +6,7 @@ import { EventBus } from '../core/EventBus';
 import { Game } from '../game/Game';
 import { Renderer } from '../renderer/Renderer';
 import { GameRenderer } from '../renderer/GameRenderer';
-import { InputManager } from '../input/InputManager';
+import { InputHandler } from '../utils/InputHandler';
 import { MusicPlayer } from '../utils/MusicPlayer';
 import { SettingsManager } from '../utils/SettingsManager';
 
@@ -42,7 +42,7 @@ export class AppInitializer {
       this.initializeGameSystems();
       
       // 4. Initialize input handling
-      this.initializeInput(config);
+      this.initializeInput();
       
       // 5. Initialize audio systems
       this.initializeAudio(config);
@@ -65,7 +65,7 @@ export class AppInitializer {
   private async initializeCoreServices(): Promise<void> {
     // Register core services
     this.serviceContainer.register('eventBus', () => this.eventBus);
-    this.serviceContainer.register('settingsManager', () => new SettingsManager());
+    this.serviceContainer.register('settingsManager', () => SettingsManager.getInstance());
   }
 
   private initializeRendering(config: AppConfig): void {
@@ -90,13 +90,23 @@ export class AppInitializer {
     this.serviceContainer.register('game', () => new Game());
   }
 
-  private initializeInput(config: AppConfig): void {
+  private initializeInput(): void {
     const canvas = this.serviceContainer.get<HTMLCanvasElement>('mainCanvas');
     const game = this.serviceContainer.get<Game>('game');
     const gameRenderer = this.serviceContainer.get<GameRenderer>('gameRenderer');
+    const renderer = this.serviceContainer.get<Renderer>('renderer');
     
-    this.serviceContainer.register('inputManager', () => 
-      new InputManager(game, gameRenderer, canvas, this.eventBus)
+    this.serviceContainer.register('inputHandler', () => 
+      new InputHandler(
+        game, 
+        gameRenderer, 
+        renderer, 
+        canvas, 
+        () => {}, // requestRender callback
+        () => {}, // minimapToggle callback (optional)
+        undefined, // status (optional)
+        undefined  // cityView (optional)
+      )
     );
   }
 

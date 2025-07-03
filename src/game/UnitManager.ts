@@ -14,7 +14,7 @@ export class UnitManager {
    * Create a new unit
    */
   createUnit(type: UnitType, position: Position, playerId: string): Unit {
-    const unit = createUnit(type, position, playerId);
+    const unit = createUnit(`unit-${Date.now()}-${Math.random()}`, type, position, playerId);
     this.units.set(unit.id, unit);
     return unit;
   }

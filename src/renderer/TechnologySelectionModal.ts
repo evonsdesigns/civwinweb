@@ -1,6 +1,7 @@
 import { TechnologyType, TechnologyEra } from '../game/TechnologyDefinitions.js';
 import type { Technology } from '../game/TechnologyDefinitions.js';
 import { getTechnology, canResearch, getResearchCost } from '../game/TechnologyDefinitions.js';
+import { TechnologySprites } from './TechnologySprites.js';
 import type { Player } from '../types/game.js';
 import type { Game } from '../game/Game.js';
 
@@ -167,36 +168,47 @@ export class TechnologySelectionModal {
   }
 
   /**
-   * Load and display available technologies
+   * Load and display available technologies (limited to 6 random selections)
    */
   private loadAvailableTechnologies(): void {
     if (!this.game || !this.player || !this.technologyList) return;
 
     const availableTechnologies = this.game.getAvailableTechnologies(this.player.id);
     
-    // Group technologies by era
-    const technologiesByEra = this.groupTechnologiesByEra(availableTechnologies);
+    // Limit to exactly 6 random technologies from available ones
+    const limitedTechnologies = this.selectRandomTechnologies(availableTechnologies, 6);
+    
+    console.log(`Displaying ${limitedTechnologies.length} technologies (max 6)`);
 
     // Clear existing content
     this.technologyList.innerHTML = '';
 
-    // Display technologies grouped by era
-    Object.entries(technologiesByEra).forEach(([era, technologies]) => {
-      if (technologies.length === 0) return;
-
-      // Create era header
-      const eraHeader = document.createElement('div');
-      eraHeader.className = 'technology-era-header';
-      eraHeader.textContent = this.formatEraName(era as TechnologyEra);
-      this.technologyList!.appendChild(eraHeader);
-
-      // Create technologies for this era
-      technologies.forEach(techType => {
-        const technology = getTechnology(techType);
-        const techElement = this.createTechnologyElement(technology);
-        this.technologyList!.appendChild(techElement);
-      });
+    // Simply display all technologies in a single list without era grouping
+    // to ensure we show exactly the number we selected
+    limitedTechnologies.forEach(techType => {
+      const technology = getTechnology(techType);
+      const techElement = this.createTechnologyElement(technology);
+      this.technologyList!.appendChild(techElement);
     });
+  }
+
+  /**
+   * Select a random subset of technologies from available ones
+   */
+  private selectRandomTechnologies(technologies: TechnologyType[], maxCount: number): TechnologyType[] {
+    if (technologies.length <= maxCount) {
+      return [...technologies]; // Return all if we have 6 or fewer
+    }
+
+    // Create a copy and shuffle it
+    const shuffled = [...technologies];
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+
+    // Return the first maxCount items
+    return shuffled.slice(0, maxCount);
   }
 
   /**
@@ -232,12 +244,33 @@ export class TechnologySelectionModal {
     const cost = getResearchCost(technology.type);
     const canAfford = this.player ? this.player.science >= cost : false;
 
+    // Create the icon container
+    const iconContainer = document.createElement('div');
+    iconContainer.className = 'tech-icon';
+
+    // Try to get cached sprite first (for immediate display)
+    const cachedSprite = TechnologySprites.getCachedSprite(technology.type, 32);
+    if (cachedSprite) {
+      iconContainer.appendChild(cachedSprite);
+    } else {
+      // Load sprite asynchronously
+      TechnologySprites.getTechnologySprite(technology.type, 32).then(sprite => {
+        if (sprite) {
+          iconContainer.innerHTML = '';
+          iconContainer.appendChild(sprite);
+        }
+      });
+    }
+
     techDiv.innerHTML = `
       <div class="tech-name">${technology.name}</div>
       <div class="tech-cost-display">${cost} research points</div>
       <div class="tech-era-badge">${this.formatEraName(technology.era)}</div>
       ${!canAfford ? '<div class="tech-insufficient">Insufficient Science</div>' : ''}
     `;
+
+    // Insert icon as the first element
+    techDiv.insertBefore(iconContainer, techDiv.firstChild);
 
     if (!canAfford) {
       techDiv.classList.add('insufficient-science');
@@ -324,6 +357,27 @@ export class TechnologySelectionModal {
     const nameElement = document.getElementById('selected-tech-name');
     if (nameElement) {
       nameElement.textContent = technology.name;
+    }
+
+    // Update technology icon in details panel
+    const iconElement = document.getElementById('selected-tech-icon');
+    if (iconElement) {
+      // Clear existing icon
+      iconElement.innerHTML = '';
+      
+      // Try to get cached sprite first
+      const cachedSprite = TechnologySprites.getCachedSprite(technologyType, 48);
+      if (cachedSprite) {
+        iconElement.appendChild(cachedSprite);
+      } else {
+        // Load sprite asynchronously
+        TechnologySprites.getTechnologySprite(technologyType, 48).then(sprite => {
+          if (sprite) {
+            iconElement.innerHTML = '';
+            iconElement.appendChild(sprite);
+          }
+        });
+      }
     }
 
     // Update era

@@ -452,9 +452,24 @@ export class InputHandler {
         this.handleBuildCity();
         break;
 
-      case 'f': // Fortify unit (if land unit selected)
+      case 'r': // Build road (if settler selected)
+      case 'R':
+        this.handleBuildRoad();
+        break;
+
+      case 'i': // Build irrigation (if settler selected) 
+      case 'I':
+        this.handleBuildIrrigation();
+        break;
+
+      case 'n': // Build mine (if settler selected)
+      case 'N': 
+        this.handleBuildMine();
+        break;
+
+      case 'f': // Build fortress (if settler selected) or Fortify unit (if land unit selected)
       case 'F':
-        this.handleFortifyUnit();
+        this.handleFortressOrFortify();
         break;
 
       case 's': // Sleep unit (if land unit selected)
@@ -577,7 +592,7 @@ export class InputHandler {
     }
 
     const selectedUnit = this.gameRenderer.getSelectedUnit();
-    if (selectedUnit && selectedUnit.type === UnitType.SETTLER) {
+    if (selectedUnit && selectedUnit.type === UnitType.SETTLERS) {
       // Prompt for city name with civilization-specific suggestion
       const cityName = prompt('Enter city name:', this.game.generateCityName(selectedUnit.playerId));
       if (cityName) {
@@ -586,6 +601,60 @@ export class InputHandler {
           this.gameRenderer.clearSelections();
           this.requestRender();
         }
+      }
+    }
+  }
+
+  // Handle build road command
+  private handleBuildRoad(): void {
+    const gameState = this.game.getGameState();
+
+    // Block action if current player is AI
+    if (this.isCurrentPlayerAI(gameState)) {
+      return;
+    }
+
+    const selectedUnit = this.gameRenderer.getSelectedUnit();
+    if (selectedUnit && selectedUnit.type === UnitType.SETTLERS) {
+      const success = this.game.buildRoad(selectedUnit.id);
+      if (success) {
+        this.requestRender();
+      }
+    }
+  }
+
+  // Handle build irrigation command
+  private handleBuildIrrigation(): void {
+    const gameState = this.game.getGameState();
+
+    // Block action if current player is AI
+    if (this.isCurrentPlayerAI(gameState)) {
+      return;
+    }
+
+    const selectedUnit = this.gameRenderer.getSelectedUnit();
+    if (selectedUnit && selectedUnit.type === UnitType.SETTLERS) {
+      const success = this.game.buildIrrigation(selectedUnit.id);
+      if (success) {
+        this.requestRender();
+      }
+    }
+  }
+
+  // Handle build mine command
+  private handleBuildMine(): void {
+    const gameState = this.game.getGameState();
+
+    // Block action if current player is AI
+    if (this.isCurrentPlayerAI(gameState)) {
+      return;
+    }
+
+    const selectedUnit = this.gameRenderer.getSelectedUnit();
+    if (selectedUnit && selectedUnit.type === UnitType.SETTLERS) {
+      const success = this.game.buildMine(selectedUnit.id);
+      if (success) {
+        this.requestRender();
       }
     }
   }
@@ -633,6 +702,42 @@ export class InputHandler {
           // Update status display if available
           if (this.status) {
             this.status.setSelectedUnit(currentUnit);
+          }
+          this.requestRender();
+        }
+      }
+    }
+  }
+
+  // Handle fortress building or unit fortifying command
+  private handleFortressOrFortify(): void {
+    const gameState = this.game.getGameState();
+
+    // Block action if current player is AI
+    if (this.isCurrentPlayerAI(gameState)) {
+      return;
+    }
+
+    const selectedUnit = this.gameRenderer.getSelectedUnit();
+    const currentUnit = this.game.getCurrentUnit();
+    
+    // Use selected unit if available, otherwise current unit
+    const unit = selectedUnit || currentUnit;
+    
+    if (unit && unit.playerId === gameState.currentPlayer) {
+      if (unit.type === UnitType.SETTLERS) {
+        // Build fortress for Settlers
+        const success = this.game.buildFortress(unit.id);
+        if (success) {
+          this.requestRender();
+        }
+      } else if (canUnitFortify(unit.type)) {
+        // Fortify other units
+        const success = this.game.fortifyUnit(unit.id);
+        if (success) {
+          // Update status display if available
+          if (this.status) {
+            this.status.setSelectedUnit(unit);
           }
           this.requestRender();
         }

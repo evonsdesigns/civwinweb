@@ -4,6 +4,7 @@ import { TerrainBase } from './TerrainBase.js';
 /**
  * Grassland terrain - the most basic and common terrain type.
  * Provides good balance of food and allows city founding.
+ * In Civ1, some grassland tiles are "shield grassland" that produce +1 production.
  */
 export class GrasslandTerrain extends TerrainBase {
   constructor() {
@@ -12,7 +13,7 @@ export class GrasslandTerrain extends TerrainBase {
       movementCost: 1,
       passable: true,
       color: '#16a34a',
-      possibleResources: [ResourceType.WHEAT, ResourceType.HORSES],
+      possibleResources: [], // Grassland has no special resources in Civ1 (Shield is a terrain variant)
       foodYield: 2,
       productionYield: 0,
       tradeYield: 0,
@@ -56,14 +57,9 @@ export class GrasslandTerrain extends TerrainBase {
     return canvas;
   }
 
-  public getResourceProbability(resource: ResourceType): number {
-    switch (resource) {
-      case ResourceType.WHEAT:
-        return 0.075; // 7.5% chance for wheat (reduced by 50%)
-      case ResourceType.HORSES:
-        return 0.025; // 2.5% chance for horses (reduced by 50%)
-      default:
-        return 0;
-    }
+  public getResourceProbability(_resource: ResourceType): number {
+    // Grassland has no special resources in Civ1
+    // Shield grassland is a terrain variant, not a special resource
+    return 0;
   }
 }

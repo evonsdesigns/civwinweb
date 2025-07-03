@@ -13,7 +13,7 @@ export class ForestTerrain extends TerrainBase {
       movementCost: 1,
       passable: true,
       color: '#15803d',
-      possibleResources: [],
+      possibleResources: [ResourceType.GAME], // Forest has Game special resource in Civ1
       foodYield: 1,
       productionYield: 2,
       tradeYield: 0,

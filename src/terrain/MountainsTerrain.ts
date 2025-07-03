@@ -13,7 +13,7 @@ export class MountainsTerrain extends TerrainBase {
       movementCost: 3, // High movement cost but passable
       passable: true,
       color: '#8b7355',
-      possibleResources: [ResourceType.GOLD, ResourceType.IRON],
+      possibleResources: [ResourceType.GOLD], // Mountains has Gold special resource in Civ1
       foodYield: 0,
       productionYield: 3,
       tradeYield: 0,

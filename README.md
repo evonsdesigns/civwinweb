@@ -6,10 +6,11 @@ A browser-based strategy game inspired by Civilization 1, built with Vite, TypeS
 
 - **Top-down tile-based world view** - Navigate through a procedurally generated world
 - **Turn-based gameplay** - Classic Civilization-style turn management
-- **Multiple terrain types** - Grassland, desert, forest, hills, mountains, ocean, and rivers
+- **Multiple terrain types** - Grassland, plains, desert, forest, hills, mountains, ocean, and rivers
 - **Resource management** - Find and utilize wheat, gold, iron, horses, and fish
 - **Unit system** - Control settlers, warriors, scouts, archers, and more
 - **City building** - Found cities and manage their growth and production
+- **Terrain improvements** - Build roads, irrigation, and mines with settlers
 - **Modern UI** - Clean, responsive interface built for the web
 
 ## Game Controls
@@ -24,6 +25,10 @@ A browser-based strategy game inspired by Civilization 1, built with Vite, TypeS
 - **Arrow Keys**: Pan around the map
 - **Spacebar**: End turn
 - **B**: Build city (with settler selected)
+- **R**: Build road (with settler selected) - Takes 1-2 turns depending on terrain
+- **I**: Build irrigation (with settler selected)
+- **N**: Build mine (with settler selected)
+- **F**: Build fortress (with settler selected) or Fortify unit (with other units)
 - **P**: Pause/unpause game
 - **Escape**: Clear selections
 - **+/-**: Zoom in/out
@@ -79,21 +84,48 @@ src/
 ## Game Mechanics
 
 ### Units
-- **Settler**: Found new cities (2 movement points)
-- **Warrior**: Basic military unit (2 movement points)
-- **Scout**: Fast exploration unit (3 movement points)
-- **Archer**: Ranged combat unit (2 movement points)
-- **Spearman**: Defensive military unit (2 movement points)
+- **Settlers**: Found new cities (1 movement point)
+- **Militia**: Basic military unit (1 movement point)
+- **Phalanx**: Standard defensive unit (1 movement point)
+- **Legion**: Roman military unit (1 movement point)
+- **Cavalry**: Fast mounted unit (2 movement points)
+- **Chariot**: Fast attack unit (2 movement points)
 - **Catapult**: Siege weapon (1 movement point)
+- **Knights**: Medieval mounted unit (2 movement points)
+- **Musketeers**: Gunpowder infantry (1 movement point)
+- **Cannon**: Gunpowder siege weapon (1 movement point)
+- **Riflemen**: Industrial infantry (1 movement point)
+- **Artillery**: Advanced siege weapon (2 movement points)
+- **Armor**: Modern tank unit (3 movement points)
+- **Mech. Inf.**: Mechanized infantry (3 movement points)
 
 ### Terrain Types
 - **Grassland**: Basic fertile land, good for cities
+- **Plains**: Fertile land, suitable for roads and irrigation
 - **Desert**: Harsh terrain, may contain gold
 - **Forest**: Provides resources but blocks movement
 - **Hills**: Elevated terrain, good for mining
 - **Mountains**: Impassable terrain, rich in gold
 - **Ocean**: Water terrain, may contain fish
 - **River**: Fresh water, provides fish resources
+
+### Terrain Improvements
+- **Roads**: Connect cities and reduce movement costs (1/3 movement between connected road tiles)
+  - **Construction Time**: 1 turn on grassland, plains, desert; 2 turns on hills, mountains, forest, rivers
+  - **Requirements**: Bridge Building technology needed for roads over rivers
+  - **Visual Indicator**: Units building roads show "R" symbol
+- **Irrigation**: Increases food production (+1 food)
+  - **Requirements**: Must be adjacent to water source (river, ocean, or irrigated tile)
+  - **Valid Terrain**: Desert, grassland, hills, plains, rivers
+- **Mines**: Increase production output
+  - **Desert**: +1 production
+  - **Hills**: +3 production  
+  - **Mountains**: +1 production
+- **Fortress**: Military defensive structure
+  - **Requirements**: Construction technology, only Settlers can build
+  - **Effects**: Doubles defensive strength of defending unit
+  - **Restrictions**: Cannot be built in city squares, only one unit defends at a time
+  - **Valid Terrain**: All land terrain except city squares
 
 ### Resources
 - **Wheat**: Food production bonus
@@ -151,7 +183,7 @@ The city dialog now features a detailed Civilization 1-style interface with:
 
 ### Visual Design
 - **Pastel civilization color backgrounds** - Each civilization's cities have subtle color-themed backgrounds
-- **Resource icons** - Visual representation with wheat (🌾), shields (🛡️), and trade arrows (➡️)
+- **Resource icons** - Visual representation with wheat (🌾), shields (🛡️), and trade arrows (💱)
 - **Surplus/deficit indicators** - Color-coded displays showing positive (green), negative (red), or neutral (gray) resource flow
 
 ### City Information Display

@@ -17,7 +17,7 @@ export class AIPlayer {
     // Process each unit with AI decision making
     for (const unit of aiUnits) {
       if (unit.movementPoints > 0 && !unit.fortified && !unit.fortifying && !unit.sleeping) {
-        await this.processAIUnit(unit, gameState);
+        this.processAIUnit(unit, gameState);
       }
     }
     
@@ -30,14 +30,11 @@ export class AIPlayer {
   /**
    * Process an individual AI unit
    */
-  private static async processAIUnit(unit: Unit, gameState: GameState): Promise<void> {
+  private static processAIUnit(unit: Unit, gameState: GameState): void {
     const unitStats = getUnitStats(unit.type);
     
-    // Add minimal delay for visual feedback
-    await new Promise(resolve => setTimeout(resolve, 50));
-    
     switch (unit.type) {
-      case UnitType.SETTLER:
+      case UnitType.SETTLERS:
         this.handleSettlerAI(unit, gameState);
         break;
       case UnitType.WARRIOR:
@@ -500,14 +497,14 @@ export class AIPlayer {
     const playerUnits = gameState.units.filter(u => u.playerId === city.playerId);
     const playerCities = gameState.cities.filter(c => c.playerId === city.playerId);
     
-    const settlerCount = playerUnits.filter(u => u.type === UnitType.SETTLER).length;
+    const settlerCount = playerUnits.filter(u => u.type === UnitType.SETTLERS).length;
     const militaryCount = playerUnits.filter(u => 
       u.type === UnitType.WARRIOR || u.type === UnitType.PHALANX || u.type === UnitType.LEGION
     ).length;
     
     // Count settlers already in production
     const settlersInProduction = playerCities.filter(c => 
-      c.production && c.production.type === 'unit' && c.production.item === UnitType.SETTLER
+      c.production && c.production.type === 'unit' && c.production.item === UnitType.SETTLERS
     ).length;
     
     // Total settlers (existing + in production)
@@ -534,7 +531,7 @@ export class AIPlayer {
       // Need more settlers for expansion
       city.production = {
         type: 'unit',
-        item: UnitType.SETTLER,
+        item: UnitType.SETTLERS,
         turnsRemaining: 3
       };
     } else if (militaryCount < Math.max(2, playerCities.length)) {
@@ -548,7 +545,7 @@ export class AIPlayer {
       // Mid/late game settler needs
       city.production = {
         type: 'unit',
-        item: UnitType.SETTLER,
+        item: UnitType.SETTLERS,
         turnsRemaining: 3
       };
     } else {

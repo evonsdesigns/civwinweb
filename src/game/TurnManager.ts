@@ -2,6 +2,8 @@ import type { GameState, Unit, City, UnitType } from '../types/game';
 import { createUnit } from './Units';
 import { getUnitStats } from './UnitDefinitions';
 import { getResearchCost } from './TechnologyDefinitions';
+import { ProductionManager } from './ProductionManager';
+import { UNIT_DEFINITIONS } from './UnitDefinitions';
 
 export class TurnManager {
   
@@ -110,21 +112,105 @@ export class TurnManager {
   private completeProduction(city: City, gameState: GameState): void {
     if (!city.production) return;
 
-    switch (city.production.type) {
+    // Get the player to validate they still have the required technologies
+    const player = gameState.players.find(p => p.id === city.playerId);
+    if (!player) return;
+
+    const productionType = city.production.type;
+    const productionItem = city.production.item;
+
+    // Validate that the player can still produce this item
+    const existingBuildings = city.buildings.map(b => b.type as any);
+    const canStillProduce = ProductionManager.canProduce(
+      productionType as 'unit' | 'building',
+      productionItem as string,
+      player.technologies,
+      existingBuildings
+    );
+
+    if (!canStillProduce) {
+      console.warn(`Cannot complete production of ${productionItem} - requirements no longer met`);
+      // Clear current production instead of completing it
+      city.production = null;
+      city.production_points = 0;
+      return;
+    }
+
+    // Store info about what was completed for auto-production logic
+    const completedType = productionType;
+    const completedItem = productionItem;
+
+    switch (productionType) {
       case 'unit':
-        this.createUnit(city, city.production.item as any, gameState);
+        this.createUnit(city, productionItem as any, gameState);
         break;
       case 'building':
-        this.createBuilding(city, city.production.item as any);
+        this.createBuilding(city, productionItem as any);
         break;
       case 'wonder':
         // Handle wonder construction
         break;
     }
 
-    // Clear current production
-    city.production = null;
-    city.production_points = 0;
+    // Implement Civ1 behavior: 
+    // - If unit completed: reset shields and auto-start another land unit
+    // - If building completed: keep shields for next building (the famous "shield bug")
+    if (completedType === 'unit') {
+      // Reset production shields and auto-start another land unit
+      city.production_points = 0;
+      this.autoStartNextLandUnit(city, player);
+    } else if (completedType === 'building') {
+      // Keep accumulated shields for next building (Civ1 "shield bug" feature)
+      // This allows switching to wonders and potentially being close to completion
+      // Only clear production item, keep the shields
+      city.production = null;
+      // Note: city.production_points is NOT reset here - this is the key feature!
+    } else {
+      // For wonders and other items, clear everything
+      city.production = null;
+      city.production_points = 0;
+    }
+  }
+
+  // Auto-start the next available land unit (Civ1 behavior)
+  private autoStartNextLandUnit(city: City, player: any): void {
+    const existingBuildings = city.buildings.map(b => b.type as any);
+    
+    // Get available land units
+    const availableOptions = ProductionManager.getAvailableProduction(
+      player.technologies,
+      existingBuildings,
+      this.calculateProductionOutput(city),
+      city.production_points
+    );
+    
+    // Filter for land units only
+    const landUnits = availableOptions.filter(option => {
+      if (option.type !== 'unit') return false;
+      
+      // Check if unit is a land unit using imported definitions
+      try {
+        const unitStats = UNIT_DEFINITIONS[option.id as any];
+        return unitStats && unitStats.category === 'land';
+      } catch (error) {
+        // Fallback: assume basic units are land units
+        const basicLandUnits = ['militia', 'settlers', 'phalanx', 'legion', 'cavalry', 'chariot'];
+        return basicLandUnits.includes(option.id);
+      }
+    });
+    
+    if (landUnits.length > 0) {
+      // Start building the first available land unit
+      const selectedUnit = landUnits[0];
+      city.production = {
+        type: 'unit',
+        item: selectedUnit.id as any,
+        turnsRemaining: selectedUnit.turns
+      };
+    } else {
+      // No land units available, clear production
+      city.production = null;
+    }
   }
 
   // Create a new unit

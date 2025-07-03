@@ -228,7 +228,7 @@ export class SpecialUnit extends BaseUnit {
 
   // Special abilities for different unit types
   canFoundCity(): boolean {
-    return this.type === UnitType.SETTLER;
+    return this.type === UnitType.SETTLERS;
   }
 
   canEstablishEmbassy(): boolean {

@@ -1106,6 +1106,7 @@ button:disabled {
   font-size: 18px;
   min-width: 24px;
   text-align: center;
+  color: #000000; /* Black font color */
 }
 
 .resource-label {
@@ -1221,6 +1222,20 @@ button:disabled {
   background: #FFFAF0; /* Light beige background */
   border: 1px inset #c0c0c0;
   margin-bottom: 8px;
+  color: #000; /* Black text for better readability */
+}
+
+#current-production {
+  flex: 1;
+  padding: 4px;
+  cursor: pointer;
+  border-radius: 2px;
+  transition: background-color 0.2s ease;
+}
+
+#current-production:hover {
+  background-color: #F0E68C; /* Light golden background on hover */
+  box-shadow: inset 0 0 3px rgba(0, 0, 0, 0.1);
 }
 
 .change-production-btn {
@@ -2010,6 +2025,15 @@ button:disabled {
   display: block;
 }
 
+/* Ensure proper step visibility control */
+.discovery-dialog #discovery-step-1 {
+  display: block;
+}
+
+.discovery-dialog #discovery-step-2 {
+  display: none;
+}
+
 .discovery-title {
   background: #000080; /* Deep blue background like Civ1 */
   color: white;
@@ -2035,91 +2059,201 @@ button:disabled {
   margin-bottom: 16px;
 }
 
-.tech-icon {
-  font-size: 48px;
-  color: #000080; /* Blue color like Civ1 interface */
-  animation: discoverPulse 2s ease-in-out infinite;
+.discovery-tech-icon .tech-icon {
+  width: 96px;
+  height: 96px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  border: none;
+  background: transparent;
+  margin: 0 auto;
 }
 
-@keyframes discoverPulse {
-  0%, 100% { transform: scale(1); opacity: 1; }
-  50% { transform: scale(1.1); opacity: 0.8; }
+/* Production Selection Modal */
+.production-selection-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.8);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 10000;
+  font-family: 'Civilization', sans-serif;
 }
 
-.discovery-message h2 {
-  color: #000080; /* Blue color like Civ1 */
+.production-dialog {
+  width: 800px;
+  height: 500px;
+  background: linear-gradient(to bottom, #c0c0c0 0%, #a0a0a0 100%);
+  border: 4px outset #c0c0c0;
+  border-radius: 0;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 4px 4px 8px rgba(0, 0, 0, 0.5);
+}
+
+.production-header {
+  background: linear-gradient(to bottom, #000080 0%, #000060 100%);
+  color: white;
+  padding: 8px 16px;
+  border-bottom: 2px solid #404040;
+  text-align: center;
+}
+
+.production-header h2 {
+  margin: 0;
   font-size: 18px;
-  margin: 0 0 12px 0;
+  font-weight: bold;
+  color: #ffffff;
+}
+
+.production-content {
+  flex: 1;
+  display: flex;
+  background-color: #c0c0c0;
+}
+
+.production-list-container {
+  flex: 1;
+  padding: 16px;
+  background-color: #c0c0c0;
+}
+
+.production-list {
+  width: 100%;
+  height: 100%;
+  background-color: #ffffff;
+  border: 2px inset #c0c0c0;
+  overflow-y: auto;
+  font-size: 14px;
+}
+
+.production-option {
+  padding: 4px 8px;
+  cursor: pointer;
+  border-bottom: 1px solid #e0e0e0;
+  display: flex;
+  justify-content: space-between;
+  color: #000000;
+}
+
+.production-option:hover {
+  background-color: #e0e0e0;
+}
+
+.production-option.selected {
+  background-color: #000080;
+  color: #ffffff;
+}
+
+.production-option-name {
   font-weight: bold;
 }
 
-.discovery-text {
+.production-option-details {
   font-size: 12px;
-  color: black;
-  margin: 0;
+  color: #666666;
 }
 
-.tech-details {
-  line-height: 1.4;
+.production-option.selected .production-option-details {
+  color: #cccccc;
 }
 
-.tech-era-display {
-  background: #e0e0e0;
-  border: 1px inset #c0c0c0;
-  padding: 8px;
-  margin-bottom: 12px;
-  color: #000080;
-  font-weight: bold;
+.production-sidebar {
+  width: 300px;
+  padding: 16px;
+  background-color: #c0c0c0;
+  border-left: 2px solid #808080;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
 }
 
-.tech-description-display {
-  margin-bottom: 16px;
-}
-
-.tech-description-display p {
-  font-size: 12px;
-  line-height: 1.4;
-  color: black;
-  margin: 0;
-}
-
-.tech-unlocks-display {
-  background: #f0f0f0;
-  border: 1px inset #c0c0c0;
+.advisor-section {
+  background-color: #f0f0f0;
+  border: 2px inset #c0c0c0;
   padding: 12px;
 }
 
-.tech-unlocks-display strong {
-  color: #000080;
-  display: block;
-  margin-bottom: 8px;
+.advisor-title {
+  margin: 0 0 8px 0;
+  font-size: 16px;
   font-weight: bold;
 }
 
-.tech-unlocks-display ul {
+.advisor-title.military {
+  color: #800000;
+}
+
+.advisor-title.domestic {
+  color: #008000;
+}
+
+.advisor-text {
   margin: 0;
-  padding-left: 16px;
-  list-style-type: disc;
+  font-size: 14px;
+  line-height: 1.4;
+  color: #000000;
 }
 
-.tech-unlocks-display li {
-  color: black;
-  margin-bottom: 4px;
-  font-size: 11px;
+.production-buttons {
+  padding: 12px 16px;
+  background: linear-gradient(to bottom, #c0c0c0 0%, #a0a0a0 100%);
+  border-top: 2px solid #e0e0e0;
+  display: flex;
+  justify-content: center;
+  gap: 16px;
 }
 
-/* Animation for modal appearance */
-.discovery-dialog.active {
-  animation: discoveryAppear 0.3s ease-out;
+.production-btn {
+  padding: 8px 20px;
+  font-family: 'Civilization', sans-serif;
+  font-size: 14px;
+  font-weight: bold;
+  border: 2px outset #c0c0c0;
+  background: linear-gradient(to bottom, #e0e0e0 0%, #c0c0c0 100%);
+  color: #000000;
+  cursor: pointer;
+  min-width: 80px;
 }
 
-@keyframes discoveryAppear {
-  from {
-    opacity: 0;
-    transform: scale(0.9);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1);
-  }
+.production-btn:hover {
+  background: linear-gradient(to bottom, #f0f0f0 0%, #d0d0d0 100%);
+}
+
+.production-btn:active {
+  border: 2px inset #c0c0c0;
+  background: linear-gradient(to bottom, #a0a0a0 0%, #c0c0c0 100%);
+}
+
+.production-btn.ok-btn {
+  background: linear-gradient(to bottom, #90ff90 0%, #60c060 100%);
+}
+
+.production-btn.ok-btn:hover {
+  background: linear-gradient(to bottom, #a0ffa0 0%, #70d070 100%);
+}
+
+.production-btn.cancel-btn {
+  background: linear-gradient(to bottom, #ff9090 0%, #c06060 100%);
+}
+
+.production-btn.cancel-btn:hover {
+  background: linear-gradient(to bottom, #ffa0a0 0%, #d07070 100%);
+}
+
+/* Production Selection Modal - Currently Producing Item */
+.production-option.currently-producing {
+  background-color: #2a4a3a;
+  border-left: 3px solid #4a8a6a;
+}
+
+.production-option.currently-producing .production-option-name {
+  color: #88cc88;
+  font-weight: bold;
 }

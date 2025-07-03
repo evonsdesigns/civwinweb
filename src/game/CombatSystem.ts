@@ -15,12 +15,12 @@ export interface CombatResult {
 export class CombatSystem {
   
   // Calculate combat result between two units
-  public resolveCombat(attacker: Unit, defender: Unit): CombatResult {
+  public resolveCombat(attacker: Unit, defender: Unit, defenderHasFortress: boolean = false): CombatResult {
     const attackerUnit = attacker as BaseUnit;
     const defenderUnit = defender as BaseUnit;
     
     const attackerStrength = this.getEffectiveAttackStrength(attackerUnit);
-    const defenderStrength = this.getEffectiveDefenseStrength(defenderUnit);
+    const defenderStrength = this.getEffectiveDefenseStrength(defenderUnit, defenderHasFortress);
     
     // Calculate damage ratio
     const totalStrength = attackerStrength + defenderStrength;
@@ -79,7 +79,7 @@ export class CombatSystem {
   }
   
   // Get effective defense strength considering bonuses
-  private getEffectiveDefenseStrength(unit: BaseUnit): number {
+  private getEffectiveDefenseStrength(unit: BaseUnit, hasFortress: boolean = false): number {
     const stats = getUnitStats(unit.type);
     let strength = stats.defense;
     
@@ -91,6 +91,11 @@ export class CombatSystem {
     // Fortification bonus
     if (unit.fortified) {
       strength = Math.floor(strength * 1.5);
+    }
+    
+    // Fortress bonus - doubles defensive strength
+    if (hasFortress) {
+      strength = Math.floor(strength * 2.0);
     }
     
     // TODO: Add terrain defense bonuses (hills, forests, etc.)
@@ -140,7 +145,7 @@ export class CombatSystem {
   }
   
   // Execute attack if valid
-  public executeAttack(attacker: Unit, defender: Unit): CombatResult | null {
+  public executeAttack(attacker: Unit, defender: Unit, defenderHasFortress: boolean = false): CombatResult | null {
     if (!this.canAttack(attacker, defender)) {
       return null;
     }
@@ -148,6 +153,6 @@ export class CombatSystem {
     // Attacking uses all remaining movement points
     attacker.movementPoints = 0;
     
-    return this.resolveCombat(attacker, defender);
+    return this.resolveCombat(attacker, defender, defenderHasFortress);
   }
 }

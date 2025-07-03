@@ -1,5 +1,6 @@
 import { TechnologyType } from '../game/TechnologyDefinitions.js';
 import { getTechnology, canResearch, getResearchCost } from '../game/TechnologyDefinitions.js';
+import { TechnologySprites } from './TechnologySprites.js';
 import type { Player } from '../types/game.js';
 import type { Game } from '../game/Game.js';
 
@@ -13,6 +14,7 @@ export class ScienceAdvisorModal {
   private game: Game | null = null;
   private player: Player | null = null;
   private onTechnologySelected: ((technology: TechnologyType) => void) | null = null;
+  private isVisible: boolean = false;
 
   constructor() {
     this.initializeModal();
@@ -54,6 +56,8 @@ export class ScienceAdvisorModal {
 
     // Add keyboard handler for Enter/Space to confirm selection and arrow keys for navigation
     document.addEventListener('keydown', (event) => {
+      console.log('ScienceAdvisorModal: Keydown event:', event.key, this.isVisible);
+      if(!this.isVisible) return;
       if (this.modal?.style.display === 'flex') {
         if (event.key === 'Enter' || event.key === ' ') {
           event.preventDefault();
@@ -65,6 +69,8 @@ export class ScienceAdvisorModal {
         }
       }
     });
+
+
   }
 
   /**
@@ -82,7 +88,11 @@ export class ScienceAdvisorModal {
     this.onTechnologySelected = onSelected || null;
     this.selectedTechnology = null;
 
-    this.loadAvailableTechnologies();
+    const firstTech = this.loadAvailableTechnologies();
+    if (firstTech) {
+      this.selectedTechnology = firstTech;
+    }
+    this.isVisible = true;
 
     console.log('ScienceAdvisorModal: Setting modal display and active class');
     this.modal.style.display = 'flex';
@@ -101,12 +111,13 @@ export class ScienceAdvisorModal {
     this.game = null;
     this.player = null;
     this.onTechnologySelected = null;
+    this.isVisible = false;
   }
 
   /**
    * Load available technologies for selection
    */
-  private loadAvailableTechnologies(): void {
+  private loadAvailableTechnologies(): TechnologyType | undefined {
     if (!this.game || !this.player || !this.technologyList) return;
 
     const availableTechs = this.game.getAvailableTechnologies(this.player.id);
@@ -126,20 +137,36 @@ export class ScienceAdvisorModal {
       const costB = getResearchCost(b);
       return costA - costB;
     });
+    let firstTech = sortedTechs[0];
 
     // Create radio button options for each technology
-    sortedTechs.forEach((techType, index) => {
+    sortedTechs.forEach(async (techType, index) => {
       const techInfo = getTechnology(techType);
-      
+
       const techOption = document.createElement('div');
       techOption.className = 'tech-option';
-      
+
       const radioId = `tech-${techType}`;
       techOption.innerHTML = `
-        <input type="radio" id="${radioId}" name="tech-selection" value="${techType}">
+        <input type="radio" id="${radioId}" name="tech-selection" value="${techType}" ${index === 0 ? 'checked' : ''}>
         <span class="tech-symbol">⚬</span>
         <label for="${radioId}">${techInfo.name}</label>
       `;
+
+      // Try to load and add technology sprite
+      try {
+        const sprite = await TechnologySprites.getTechnologySprite(techType, 24);
+        const symbolSpan = techOption.querySelector('.tech-symbol') as HTMLElement;
+        if (symbolSpan && sprite) {
+          symbolSpan.innerHTML = '';
+          symbolSpan.appendChild(sprite);
+          symbolSpan.style.display = 'inline-block';
+          symbolSpan.style.width = '24px';
+          symbolSpan.style.height = '24px';
+        }
+      } catch (error) {
+        console.warn(`Failed to load sprite for ${techType}:`, error);
+      }
 
       // Add click handler
       techOption.addEventListener('click', () => {
@@ -155,16 +182,11 @@ export class ScienceAdvisorModal {
         this.technologyList.appendChild(techOption);
       }
 
-      // Auto-select first technology
-      if (index === 0) {
-        const radio = techOption.querySelector('input[type="radio"]') as HTMLInputElement;
-        if (radio) {
-          radio.checked = true;
-          this.selectedTechnology = techType;
-          this.updateOKButton();
-        }
-      }
+
     });
+    this.updateOKButton();
+
+    return firstTech;
   }
 
   /**
@@ -200,11 +222,11 @@ export class ScienceAdvisorModal {
       newRadio.checked = true;
       this.selectedTechnology = newRadio.value as TechnologyType;
       this.updateOKButton();
-      
+
       // Scroll the option into view if it's outside the visible area
-      newOption.scrollIntoView({ 
-        behavior: 'smooth', 
-        block: 'nearest' 
+      newOption.scrollIntoView({
+        behavior: 'smooth',
+        block: 'nearest'
       });
     }
   }

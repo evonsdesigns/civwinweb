@@ -1,5 +1,5 @@
 import type { Tile } from '../types/game';
-import { TerrainType } from '../types/game';
+import { TerrainType, TerrainVariant } from '../types/game';
 import { TerrainManager } from '../terrain/index';
 
 export class EarthMapGenerator {
@@ -23,6 +23,9 @@ export class EarthMapGenerator {
 
     // Generate Earth-like continents and terrain
     this.generateEarthTerrain(map, width, height);
+    
+    // Add terrain variants (shield grassland, shield river)
+    this.addTerrainVariants(map, width, height);
     
     // Add resources
     this.addResources(map, width, height);
@@ -51,6 +54,9 @@ export class EarthMapGenerator {
     // Create the Mediterranean Sea (between Europe and Africa)
     this.createMediterraneanSea(map, width, height);
     
+    // Smooth coastlines for better appearance
+    this.smoothCoastlines(map, width, height);
+    
     // Add climate-based terrain after continents are placed
     this.addEarthClimateZones(map, width, height);
     
@@ -62,6 +68,9 @@ export class EarthMapGenerator {
     
     // Add forests in temperate and tropical regions
     this.addEarthForests(map, width, height);
+    
+    // Add swamps in specific wetland regions
+    this.addEarthSwamps(map, width, height);
     
     // Add rivers connecting mountain to ocean
     this.addEarthRivers(map, width, height);
@@ -279,10 +288,10 @@ export class EarthMapGenerator {
         const distanceY = (y - centerY) / (sizeY / 2);
         const distance = Math.sqrt(distanceX * distanceX + distanceY * distanceY);
         
-        // Create irregular coastlines with multiple noise layers
-        const coastNoise1 = Math.sin(x * 0.3) * Math.cos(y * 0.2) * 0.2;
-        const coastNoise2 = Math.sin(x * 0.8) * Math.cos(y * 0.6) * 0.1;
-        const coastNoise3 = Math.sin(x * 1.5) * Math.cos(y * 1.2) * 0.05;
+        // Create smooth coastlines with gentle variation
+        const coastNoise1 = Math.sin(x * 0.05) * Math.cos(y * 0.03) * 0.15;
+        const coastNoise2 = Math.sin(x * 0.1) * Math.cos(y * 0.08) * 0.08;
+        const coastNoise3 = Math.sin(x * 0.15) * Math.cos(y * 0.12) * 0.04;
         const totalNoise = coastNoise1 + coastNoise2 + coastNoise3;
         
         // Make landmasses more solid - only add noise at the edges
@@ -295,15 +304,90 @@ export class EarthMapGenerator {
             // Core area - always land
             map[y][x].terrain = TerrainType.GRASSLAND;
           } else {
-            // Edge area - use noise for coastline variation
+            // Edge area - use smooth transition for coastline
             const edgeProbability = density * (1 - (distance - 0.7) / (noisyThreshold - 0.7));
-            if (edgeProbability > 0.3) { // Much higher threshold for solid continents
+            if (edgeProbability > 0.5) { // Higher threshold for smoother coastlines
               map[y][x].terrain = TerrainType.GRASSLAND;
             }
           }
         }
       }
     }
+  }
+
+  // Smooth coastlines to reduce noise and create more natural-looking shores
+  private smoothCoastlines(map: Tile[][], width: number, height: number): void {
+    // Create a copy of the map to avoid modifying while reading
+    const originalMap = map.map(row => row.map(tile => ({ ...tile })));
+    
+    for (let y = 1; y < height - 1; y++) {
+      for (let x = 1; x < width - 1; x++) {
+        const currentTile = originalMap[y][x];
+        
+        // Only process coastline tiles (land adjacent to ocean or vice versa)
+        if (this.isCoastlineTile(originalMap, x, y, width, height)) {
+          // Count neighboring terrain types
+          let landCount = 0;
+          let oceanCount = 0;
+          
+          // Check 8-connected neighbors
+          for (let dy = -1; dy <= 1; dy++) {
+            for (let dx = -1; dx <= 1; dx++) {
+              if (dx === 0 && dy === 0) continue;
+              
+              const nx = x + dx;
+              const ny = y + dy;
+              
+              if (nx >= 0 && nx < width && ny >= 0 && ny < height) {
+                if (originalMap[ny][nx].terrain === TerrainType.OCEAN) {
+                  oceanCount++;
+                } else if (originalMap[ny][nx].terrain !== TerrainType.MOUNTAINS) {
+                  landCount++;
+                }
+              }
+            }
+          }
+          
+          // Smooth based on majority of neighbors
+          if (currentTile.terrain === TerrainType.OCEAN && landCount >= 6) {
+            // Convert isolated ocean to land
+            map[y][x].terrain = TerrainType.GRASSLAND;
+          } else if (currentTile.terrain !== TerrainType.OCEAN && 
+                     currentTile.terrain !== TerrainType.MOUNTAINS && 
+                     oceanCount >= 6) {
+            // Convert isolated land to ocean
+            map[y][x].terrain = TerrainType.OCEAN;
+          }
+        }
+      }
+    }
+  }
+
+  // Check if a tile is part of a coastline (land-ocean boundary)
+  private isCoastlineTile(map: Tile[][], x: number, y: number, width: number, height: number): boolean {
+    const currentTerrain = map[y][x].terrain;
+    
+    // Check adjacent tiles for different terrain types
+    for (let dy = -1; dy <= 1; dy++) {
+      for (let dx = -1; dx <= 1; dx++) {
+        if (dx === 0 && dy === 0) continue;
+        
+        const nx = x + dx;
+        const ny = y + dy;
+        
+        if (nx >= 0 && nx < width && ny >= 0 && ny < height) {
+          const neighborTerrain = map[ny][nx].terrain;
+          
+          // If current is ocean and neighbor is land, or vice versa, it's coastline
+          if ((currentTerrain === TerrainType.OCEAN && neighborTerrain !== TerrainType.OCEAN) ||
+              (currentTerrain !== TerrainType.OCEAN && neighborTerrain === TerrainType.OCEAN)) {
+            return true;
+          }
+        }
+      }
+    }
+    
+    return false;
   }
 
   // Add climate zones based on latitude and geography
@@ -500,6 +584,52 @@ export class EarthMapGenerator {
     }
   }
 
+  // Add swamps in Earth's major wetland regions
+  private addEarthSwamps(map: Tile[][], width: number, height: number): void {
+    // Florida Everglades (southeastern North America)
+    this.createEarthSwampRegion(map, width * 0.2, height * 0.42, width * 0.02, height * 0.04, width, height);
+    
+    // Mississippi Delta (southern North America)
+    this.createEarthSwampRegion(map, width * 0.17, height * 0.45, width * 0.015, height * 0.02, width, height);
+    
+    // Amazon Basin wetlands (northern South America)
+    this.createEarthSwampRegion(map, width * 0.25, height * 0.55, width * 0.03, height * 0.03, width, height);
+    
+    // Pantanal (central South America)
+    this.createEarthSwampRegion(map, width * 0.24, height * 0.68, width * 0.02, height * 0.03, width, height);
+    
+    // Okavango Delta (southern Africa)
+    this.createEarthSwampRegion(map, width * 0.54, height * 0.7, width * 0.015, height * 0.015, width, height);
+    
+    // Mesopotamian Marshes (Middle East)
+    this.createEarthSwampRegion(map, width * 0.6, height * 0.4, width * 0.015, height * 0.02, width, height);
+    
+    // Sundarbans (South Asia)
+    this.createEarthSwampRegion(map, width * 0.72, height * 0.48, width * 0.015, height * 0.015, width, height);
+  }
+
+  // Create a swamp region
+  private createEarthSwampRegion(map: Tile[][], centerX: number, centerY: number, sizeX: number, sizeY: number, width: number, height: number): void {
+    const startX = Math.max(0, Math.floor(centerX - sizeX / 2));
+    const endX = Math.min(width - 1, Math.floor(centerX + sizeX / 2));
+    const startY = Math.max(0, Math.floor(centerY - sizeY / 2));
+    const endY = Math.min(height - 1, Math.floor(centerY + sizeY / 2));
+
+    for (let y = startY; y <= endY; y++) {
+      for (let x = startX; x <= endX; x++) {
+        if (map[y][x].terrain === TerrainType.GRASSLAND || map[y][x].terrain === TerrainType.JUNGLE) {
+          const distanceFromCenter = Math.sqrt(
+            Math.pow((x - centerX) / sizeX, 2) + Math.pow((y - centerY) / sizeY, 2)
+          );
+          
+          if (distanceFromCenter < 0.5 && Math.random() < 0.6) {
+            map[y][x].terrain = TerrainType.SWAMP;
+          }
+        }
+      }
+    }
+  }
+
   // Add major rivers
   private addEarthRivers(map: Tile[][], width: number, height: number): void {
     // Amazon River (South America)
@@ -562,6 +692,44 @@ export class EarthMapGenerator {
             tile.resources = tile.resources || [];
             tile.resources.push(resource);
             break; // Only add one resource per tile
+          }
+        }
+      }
+    }
+  }
+
+  // Add terrain variants like shield grassland and shield river
+  private addTerrainVariants(map: Tile[][], width: number, height: number): void {
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        const tile = map[y][x];
+        
+        // Add shield variants to grassland and river tiles
+        if (tile.terrain === TerrainType.GRASSLAND) {
+          // Create a more natural, less predictable pattern for shield grassland
+          // Use multiple factors to create pseudo-randomness with some clustering
+          const seed1 = (x * 17 + y * 23) % 100;
+          const seed2 = (x * 31 + y * 41) % 100;
+          const seed3 = (x * 7 + y * 13) % 100;
+          
+          // Combine multiple noise sources for more natural distribution
+          const noiseValue = (seed1 + seed2 * 0.7 + seed3 * 0.3) % 100;
+          
+          // About 15% of grassland should be shield grassland, but with clustering
+          // Add some clustering bias based on nearby coordinates
+          const clusterBias = ((x / 3) + (y / 3)) % 7;
+          const finalValue = (noiseValue + clusterBias * 5) % 100;
+          
+          const isShieldGrassland = finalValue < 15;
+          if (isShieldGrassland) {
+            tile.terrainVariant = TerrainVariant.SHIELD;
+          }
+        } else if (tile.terrain === TerrainType.RIVER) {
+          // River shield variants should be rarer and more random
+          const riverSeed = (x * 43 + y * 67) % 100;
+          const isShieldRiver = riverSeed < 25; // 25% chance for shield river
+          if (isShieldRiver) {
+            tile.terrainVariant = TerrainVariant.SHIELD;
           }
         }
       }

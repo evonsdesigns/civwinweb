@@ -4,7 +4,7 @@ import { TechnologyType } from './TechnologyDefinitions';
 // Complete unit definitions based on Civilization manual
 export const UNIT_DEFINITIONS: Record<UnitType, UnitStats> = {
   // Non-combat units
-  [UnitType.SETTLER]: {
+  [UnitType.SETTLERS]: {
     attack: 0,
     defense: 1,
     movement: 1,
@@ -193,7 +193,7 @@ export const UNIT_DEFINITIONS: Record<UnitType, UnitStats> = {
     canMoveOnMountains: true
   },
   
-  [UnitType.MECHANIZED_INFANTRY]: {
+  [UnitType.MECH_INF]: {
     attack: 6,
     defense: 6,
     movement: 3,
@@ -211,7 +211,7 @@ export const UNIT_DEFINITIONS: Record<UnitType, UnitStats> = {
     defense: 0,
     movement: 3,
     category: UnitCategory.NAVAL,
-    requiredTechnology: TechnologyType.MAP_MAKING,
+    requiredTechnology: TechnologyType.MAPMAKING,
     productionCost: 40,
     canAttack: true,
     canFortify: false,
@@ -398,7 +398,6 @@ export const UNIT_DEFINITIONS: Record<UnitType, UnitStats> = {
     defense: 1,
     movement: 1,
     category: UnitCategory.LAND,
-    requiredTechnology: TechnologyType.WARRIOR_CODE,
     productionCost: 20,
     canAttack: true,
     canFortify: true,

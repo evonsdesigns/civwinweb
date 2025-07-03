@@ -1,5 +1,5 @@
 import type { Tile, MapScenario } from '../types/game';
-import { TerrainType } from '../types/game';
+import { TerrainType, TerrainVariant } from '../types/game';
 import { TerrainManager } from '../terrain/index';
 import { EarthMapGenerator } from './EarthMapGenerator';
 
@@ -43,6 +43,9 @@ export class MapGenerator {
     // Generate terrain using simple noise
     this.generateTerrain(map, width, height);
     
+    // Add terrain variants (shield grassland, shield river)
+    this.addTerrainVariants(map, width, height);
+    
     // Add resources
     this.addResources(map, width, height);
 
@@ -75,9 +78,15 @@ export class MapGenerator {
     
     // Add jungle patches
     this.generateJunglePatches(map, width, height);
+    
+    // Add swamp patches
+    this.generateSwampPatches(map, width, height);
 
     // Add some rivers
     this.addRivers(map, width, height);
+    
+    // Smooth coastlines for better appearance
+    this.smoothCoastlines(map, width, height);
   }
 
   // Generate ocean borders
@@ -90,8 +99,14 @@ export class MapGenerator {
         const maxDistance = Math.sqrt(Math.pow(width / 2, 2) + Math.pow(height / 2, 2));
         const oceanFactor = distanceFromCenter / maxDistance;
 
-        // Ocean at edges with some variation
-        if (oceanFactor > 0.8 || (oceanFactor > 0.7 && Math.random() < 0.5)) {
+        // Smooth ocean borders with gentle variation
+        const smoothNoise = Math.sin(x * 0.1) * Math.cos(y * 0.08) * 0.05;
+        const adjustedFactor = oceanFactor + smoothNoise;
+
+        // Ocean at edges with smooth transition
+        if (adjustedFactor > 0.85) {
+          map[y][x].terrain = TerrainType.OCEAN;
+        } else if (adjustedFactor > 0.75 && Math.random() < 0.3) {
           map[y][x].terrain = TerrainType.OCEAN;
         }
       }
@@ -339,6 +354,47 @@ export class MapGenerator {
     }
   }
 
+  // Generate swamp patches
+  private generateSwampPatches(map: Tile[][], width: number, height: number): void {
+    const numSwamps = Math.floor((width * height) / 1500); // Fewer swamps than jungles
+    
+    for (let i = 0; i < numSwamps; i++) {
+      let startX, startY;
+      let attempts = 0;
+      do {
+        startX = Math.floor(Math.random() * (width - 4)) + 2;
+        startY = Math.floor(Math.random() * (height - 4)) + 2;
+        attempts++;
+      } while (map[startY][startX].terrain !== TerrainType.GRASSLAND && attempts < 20);
+      
+      if (attempts < 20) {
+        this.createSwampPatch(map, startX, startY, width, height);
+      }
+    }
+  }
+
+  // Create a small swamp patch
+  private createSwampPatch(map: Tile[][], centerX: number, centerY: number, width: number, height: number): void {
+    const swampSize = Math.floor(Math.random() * 2) + 1; // Smaller than jungle patches
+    
+    for (let dy = -swampSize; dy <= swampSize; dy++) {
+      for (let dx = -swampSize; dx <= swampSize; dx++) {
+        const x = centerX + dx;
+        const y = centerY + dy;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        
+        if (x >= 0 && x < width && y >= 0 && y < height && distance <= swampSize) {
+          if (map[y][x].terrain === TerrainType.GRASSLAND) {
+            const probability = 1 - (distance / swampSize);
+            if (Math.random() < probability * 0.5) {
+              map[y][x].terrain = TerrainType.SWAMP;
+            }
+          }
+        }
+      }
+    }
+  }
+
   // Add rivers to the map
   private addRivers(map: Tile[][], width: number, height: number): void {
     const numRivers = Math.floor((width * height) / 500);
@@ -395,6 +451,119 @@ export class MapGenerator {
             tile.resources = tile.resources || [];
             tile.resources.push(resource);
             break; // Only add one resource per tile
+          }
+        }
+      }
+    }
+  }
+
+  // Smooth coastlines to reduce noise and create more natural-looking shores
+  private smoothCoastlines(map: Tile[][], width: number, height: number): void {
+    // Create a copy of the map to avoid modifying while reading
+    const originalMap = map.map(row => row.map(tile => ({ ...tile })));
+    
+    for (let y = 1; y < height - 1; y++) {
+      for (let x = 1; x < width - 1; x++) {
+        const currentTile = originalMap[y][x];
+        
+        // Only process coastline tiles (land adjacent to ocean or vice versa)
+        if (this.isCoastlineTile(originalMap, x, y, width, height)) {
+          // Count neighboring terrain types
+          let landCount = 0;
+          let oceanCount = 0;
+          
+          // Check 8-connected neighbors
+          for (let dy = -1; dy <= 1; dy++) {
+            for (let dx = -1; dx <= 1; dx++) {
+              if (dx === 0 && dy === 0) continue;
+              
+              const nx = x + dx;
+              const ny = y + dy;
+              
+              if (nx >= 0 && nx < width && ny >= 0 && ny < height) {
+                if (originalMap[ny][nx].terrain === TerrainType.OCEAN) {
+                  oceanCount++;
+                } else if (originalMap[ny][nx].terrain !== TerrainType.MOUNTAINS) {
+                  landCount++;
+                }
+              }
+            }
+          }
+          
+          // Smooth based on majority of neighbors
+          if (currentTile.terrain === TerrainType.OCEAN && landCount >= 6) {
+            // Convert isolated ocean to land
+            map[y][x].terrain = TerrainType.GRASSLAND;
+          } else if (currentTile.terrain !== TerrainType.OCEAN && 
+                     currentTile.terrain !== TerrainType.MOUNTAINS && 
+                     oceanCount >= 6) {
+            // Convert isolated land to ocean
+            map[y][x].terrain = TerrainType.OCEAN;
+          }
+        }
+      }
+    }
+  }
+
+  // Check if a tile is part of a coastline (land-ocean boundary)
+  private isCoastlineTile(map: Tile[][], x: number, y: number, width: number, height: number): boolean {
+    const currentTerrain = map[y][x].terrain;
+    
+    // Check adjacent tiles for different terrain types
+    for (let dy = -1; dy <= 1; dy++) {
+      for (let dx = -1; dx <= 1; dx++) {
+        if (dx === 0 && dy === 0) continue;
+        
+        const nx = x + dx;
+        const ny = y + dy;
+        
+        if (nx >= 0 && nx < width && ny >= 0 && ny < height) {
+          const neighborTerrain = map[ny][nx].terrain;
+          
+          // If current is ocean and neighbor is land, or vice versa, it's coastline
+          if ((currentTerrain === TerrainType.OCEAN && neighborTerrain !== TerrainType.OCEAN) ||
+              (currentTerrain !== TerrainType.OCEAN && neighborTerrain === TerrainType.OCEAN)) {
+            return true;
+          }
+        }
+      }
+    }
+    
+    return false;
+  }
+
+  // Add terrain variants like shield grassland and shield river
+  private addTerrainVariants(map: Tile[][], width: number, height: number): void {
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        const tile = map[y][x];
+        
+        // Add shield variants to grassland and river tiles
+        if (tile.terrain === TerrainType.GRASSLAND) {
+          // Create a more natural, less predictable pattern for shield grassland
+          // Use multiple factors to create pseudo-randomness with some clustering
+          const seed1 = (x * 17 + y * 23) % 100;
+          const seed2 = (x * 31 + y * 41) % 100;
+          const seed3 = (x * 7 + y * 13) % 100;
+          
+          // Combine multiple noise sources for more natural distribution
+          const noiseValue = (seed1 + seed2 * 0.7 + seed3 * 0.3) % 100;
+          
+          // About 15% of grassland should be shield grassland, but with clustering
+          // Add some clustering bias based on nearby coordinates
+          const clusterBias = ((x / 3) + (y / 3)) % 7;
+          const finalValue = (noiseValue + clusterBias * 5) % 100;
+          
+          const isShieldGrassland = finalValue < 15;
+          if (isShieldGrassland) {
+            tile.terrainVariant = TerrainVariant.SHIELD;
+          }
+        } else if (tile.terrain === TerrainType.RIVER) {
+          // River shield variants should be rarer and more random
+          const riverSeed = (x * 43 + y * 67) % 100;
+          const isShieldRiver = riverSeed < 25;
+          if (isShieldRiver) {
+            tile.terrainVariant = TerrainVariant.SHIELD;
           }
         }
       }

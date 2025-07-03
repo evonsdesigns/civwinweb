@@ -1,3 +1,5 @@
+import { SettingsManager } from './SettingsManager';
+
 /**
  * Mini MP3 Player for the CivWin game
  * Handles background music playback with shuffle functionality
@@ -45,7 +47,11 @@ export class MusicPlayer {
       '/src/audio/music/civwinweb-the-shone-path.mp3',
       '/src/audio/music/civwinweb-hummer-obi-nodes.mp3',
       '/src/audio/music/civwinweb-conquest-of-the-nile.mp3',
-      '/src/audio/music/civwinweb-hammer-abi-toads.mp3'
+      '/src/audio/music/civwinweb-hammer-abi-toads.mp3',
+      '/src/audio/music/civwinweb-Technochtitlan Revealed.mp3',
+      '/src/audio/music/civwinweb-Tenochtitlan Crumbles.mp3',
+      '/src/audio/music/civwinweb-Tenochtitlan Empire.mp3',
+      '/src/audio/music/civwinweb-Tenochtitlan Hidden.mp3'
     ];
     
     // Randomly shuffle the tracks array every time
@@ -110,9 +116,8 @@ export class MusicPlayer {
     this.audio.addEventListener('error', (e) => this.handleAudioError(e));
     this.audio.addEventListener('canplay', () => this.handleCanPlay());
     
-    // Set volume to match slider value
-    this.audio.volume = parseInt(this.volumeSlider.value) / 100;
-    this.updateVolumeIcon();
+    // Load volume from settings and apply it
+    this.loadVolumeFromSettings();
   }
 
   /**
@@ -365,6 +370,43 @@ export class MusicPlayer {
   }
 
   /**
+   * Load volume from settings and apply it
+   */
+  private loadVolumeFromSettings(): void {
+    const settingsManager = SettingsManager.getInstance();
+    const musicVolume = settingsManager.getSetting('musicVolume');
+    
+    // Set the slider value
+    this.volumeSlider.value = musicVolume.toString();
+    
+    // Apply the volume to the audio element
+    this.audio.volume = musicVolume / 100;
+    
+    // Update the volume display
+    this.volumeValue.textContent = `${musicVolume}%`;
+    
+    // Update the icon
+    this.updateVolumeIcon();
+  }
+
+  /**
+   * Sync the current volume setting with the settings manager
+   */
+  public syncVolumeWithSettings(): void {
+    const settingsManager = SettingsManager.getInstance();
+    const musicVolume = settingsManager.getSetting('musicVolume');
+    
+    // Only update if different from current volume
+    const currentVolume = Math.round(this.audio.volume * 100);
+    if (currentVolume !== musicVolume) {
+      this.volumeSlider.value = musicVolume.toString();
+      this.audio.volume = musicVolume / 100;
+      this.volumeValue.textContent = `${musicVolume}%`;
+      this.updateVolumeIcon();
+    }
+  }
+
+  /**
    * Update volume based on slider value
    */
   private updateVolume(): void {
@@ -372,7 +414,41 @@ export class MusicPlayer {
     this.audio.volume = volume;
     this.volumeValue.textContent = `${this.volumeSlider.value}%`;
     this.updateVolumeIcon();
-    this.saveSettings();
+    
+    // Save the volume to settings
+    const settingsManager = SettingsManager.getInstance();
+    settingsManager.updateSettings({ musicVolume: parseInt(this.volumeSlider.value) });
+    
+    // Notify main app to sync settings modal if open
+    this.notifyVolumeChange();
+  }
+
+  /**
+   * Notify about volume change (for settings modal sync)
+   */
+  private notifyVolumeChange(): void {
+    // Dispatch a custom event that the main app can listen to
+    const event = new CustomEvent('musicVolumeChanged', {
+      detail: { volume: parseInt(this.volumeSlider.value) }
+    });
+    document.dispatchEvent(event);
+  }
+
+  /**
+   * Update the music player UI to match a given volume without saving to settings
+   */
+  public updateVolumeUI(volume: number): void {
+    // Update the slider value
+    this.volumeSlider.value = volume.toString();
+    
+    // Update the audio volume
+    this.audio.volume = volume / 100;
+    
+    // Update the volume display
+    this.volumeValue.textContent = `${volume}%`;
+    
+    // Update the icon
+    this.updateVolumeIcon();
   }
 
   /**

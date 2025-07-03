@@ -13,7 +13,7 @@ export class HillsTerrain extends TerrainBase {
       movementCost: 1,
       passable: true,
       color: '#84cc16',
-      possibleResources: [ResourceType.IRON, ResourceType.HORSES],
+      possibleResources: [ResourceType.COAL], // Hills has Coal special resource in Civ1
       foodYield: 1,
       productionYield: 1,
       tradeYield: 0,

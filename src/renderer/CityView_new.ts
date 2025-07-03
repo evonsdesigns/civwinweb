@@ -1,6 +1,10 @@
 import { City, GameState } from '../types/game';
 import { Game } from '../game/Game';
 import { getCivilization } from '../game/CivilizationDefinitions';
+import { ProductionManager } from '../game/ProductionManager';
+import { ProductionSelectionModal } from './ProductionSelectionModal';
+import { UNIT_DEFINITIONS } from '../game/UnitDefinitions';
+import { BUILDING_DEFINITIONS } from '../game/BuildingDefinitions';
 
 // Enhanced resource calculation interface
 interface CityResources {
@@ -37,9 +41,11 @@ export class CityView {
   private cityMapContext: CanvasRenderingContext2D;
   private game: Game;
   private currentCity: City | null = null;
+  private productionModal: ProductionSelectionModal;
 
   constructor(game: Game) {
     this.game = game;
+    this.productionModal = new ProductionSelectionModal(game);
     
     // Get DOM elements
     this.cityModal = document.getElementById('city-modal')!;
@@ -87,6 +93,10 @@ export class CityView {
     const changeProductionButton = document.getElementById('change-production')!;
     changeProductionButton.addEventListener('click', () => this.handleChangeProduction());
 
+    // Make current production box clickable
+    this.currentProduction.addEventListener('click', () => this.handleChangeProduction());
+    this.currentProduction.style.cursor = 'pointer';
+
     // Close on overlay click
     this.cityModal.addEventListener('click', (event) => {
       if (event.target === this.cityModal) {
@@ -97,6 +107,21 @@ export class CityView {
     // Close on Escape key
     document.addEventListener('keydown', (event) => {
       if (event.key === 'Escape' && this.isOpen()) {
+        // Check if production modal is open first
+        const productionModal = document.getElementById('production-selection-modal');
+        if (productionModal && productionModal.style.display === 'flex') {
+          return; // Let production modal handle it
+        }
+        this.close();
+      }
+      // Handle Enter/Space to close (OK button)
+      if ((event.key === 'Enter' || event.key === ' ') && this.isOpen()) {
+        // Check if production modal is open first
+        const productionModal = document.getElementById('production-selection-modal');
+        if (productionModal && productionModal.style.display === 'flex') {
+          return; // Let production modal handle it
+        }
+        event.preventDefault();
         this.close();
       }
     });
@@ -147,7 +172,29 @@ export class CityView {
 
     // Update current production
     if (this.currentCity.production) {
-      this.currentProduction.textContent = this.currentCity.production.item as string;
+      // Get production cost for calculating progress
+      let totalCost = 0;
+      let productionName = this.currentCity.production.item as string;
+      
+      if (this.currentCity.production.type === 'unit') {
+        // Get unit stats to determine cost
+        const unitStats = this.getUnitStatsForProduction(this.currentCity.production.item as any);
+        if (unitStats) {
+          totalCost = unitStats.productionCost;
+          productionName = this.formatUnitName(this.currentCity.production.item as string);
+        }
+      } else if (this.currentCity.production.type === 'building') {
+        // Get building stats to determine cost
+        const buildingStats = this.getBuildingStatsForProduction(this.currentCity.production.item as any);
+        if (buildingStats) {
+          totalCost = buildingStats.productionCost;
+          productionName = buildingStats.name;
+        }
+      }
+      
+      // Show production with accumulated shields
+      const accumulatedShields = this.currentCity.production_points || 0;
+      this.currentProduction.textContent = `${productionName} (${accumulatedShields}/${totalCost} shields)`;
       this.productionTurns.textContent = `(${this.currentCity.production.turnsRemaining} turns)`;
     } else {
       this.currentProduction.textContent = 'Nothing';
@@ -446,17 +493,35 @@ export class CityView {
   private handleChangeProduction(): void {
     if (!this.currentCity) return;
     
-    // Simplified production change - you may want to implement a proper production dialog
-    const options = ['Settler', 'Warrior', 'Phalanx', 'Archer', 'Granary', 'Barracks'];
-    const choice = prompt(`Choose production:\n${options.map((opt, i) => `${i + 1}. ${opt}`).join('\n')}\n\nEnter number (1-${options.length}):`);
-    
-    if (choice) {
-      const index = parseInt(choice) - 1;
-      if (index >= 0 && index < options.length) {
-        const newProduction = options[index];
-        this.game.changeCityProduction(this.currentCity.id, newProduction);
-        this.updateCityInformation();
-      }
+    // Show the production selection modal
+    this.productionModal.show(this.currentCity, (selectedOption) => {
+      // Callback when user selects a production option
+      this.game.changeCityProduction(this.currentCity!.id, selectedOption.name);
+      this.updateCityInformation();
+      this.productionModal.hide();
+    });
+  }
+
+  private getUnitStatsForProduction(unitType: any): any {
+    try {
+      return UNIT_DEFINITIONS[unitType];
+    } catch (error) {
+      console.warn('Could not get unit stats for', unitType);
+      return null;
     }
+  }
+
+  private getBuildingStatsForProduction(buildingType: any): any {
+    try {
+      return BUILDING_DEFINITIONS[buildingType];
+    } catch (error) {
+      console.warn('Could not get building stats for', buildingType);
+      return null;
+    }
+  }
+
+  private formatUnitName(unitType: string): string {
+    // Convert enum value to display name
+    return unitType.charAt(0).toUpperCase() + unitType.slice(1).replace(/_/g, ' ');
   }
 }

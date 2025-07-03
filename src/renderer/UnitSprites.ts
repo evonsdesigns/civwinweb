@@ -122,7 +122,7 @@ export class UnitSprites {
     // For now, only settler has a custom sprite
     // Other units will use the default geometric rendering
     switch (unitType) {
-      case UnitType.SETTLER:
+      case UnitType.SETTLERS:
         return '/src/assets/settler.png';
       default:
         throw new Error(`No sprite available for unit type ${unitType}`);

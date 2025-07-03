@@ -12,7 +12,7 @@ export class JungleTerrain extends TerrainBase {
       movementCost: 1,
       passable: true,
       color: '#14532d',
-      possibleResources: [ResourceType.GOLD],
+      possibleResources: [ResourceType.GEM], // Jungle has Gem special resource in Civ1
       foodYield: 1,
       productionYield: 1,
       tradeYield: 0,

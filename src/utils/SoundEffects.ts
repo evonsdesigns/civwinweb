@@ -15,6 +15,14 @@ export class SoundEffects {
   }
 
   /**
+   * Get the current effects volume from settings
+   */
+  private static getEffectsVolume(): number {
+    const settingsManager = SettingsManager.getInstance();
+    return settingsManager.getSetting('effectsVolume') / 100; // Convert from 0-100 to 0-1
+  }
+
+  /**
    * Check if sound effects are enabled
    */
   private static areSoundEffectsEnabled(): boolean {
@@ -36,8 +44,9 @@ export class SoundEffects {
     try {
       const audio = new Audio(soundPath);
       const masterVolume = this.getMasterVolume();
-      // Multiply base volume by master volume setting
-      const finalVolume = Math.max(0, Math.min(1, baseVolume * masterVolume));
+      const effectsVolume = this.getEffectsVolume();
+      // Multiply base volume by master volume and effects volume settings
+      const finalVolume = Math.max(0, Math.min(1, baseVolume * masterVolume * effectsVolume));
       audio.volume = finalVolume;
       
       audio.play().catch(error => {

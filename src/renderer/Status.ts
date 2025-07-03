@@ -20,20 +20,20 @@ export class Status {
     this.game = game;
     // Get the status window
     this.window = document.getElementById('status-window')!;
-    
+
     this.setupEventListeners();
   }
 
   private setupEventListeners(): void {
     // Window dragging
     const header = this.window.querySelector('.status-header') as HTMLElement;
-    
+
     header.addEventListener('mousedown', (e) => {
       this.isDragging = true;
       const rect = this.window.getBoundingClientRect();
       this.dragOffset.x = e.clientX - rect.left;
       this.dragOffset.y = e.clientY - rect.top;
-      
+
       document.addEventListener('mousemove', this.onWindowDrag);
       document.addEventListener('mouseup', this.onWindowDragEnd);
       e.preventDefault();
@@ -44,48 +44,18 @@ export class Status {
     closeBtn.addEventListener('click', () => {
       this.hide();
     });
-
-    // Technology lightbulb click - research now or open technology selection modal
-    const lightbulb = document.getElementById('tech-lightbulb');
-    if (lightbulb) {
-      lightbulb.addEventListener('click', () => {
-        const currentPlayer = this.getCurrentPlayer();
-        if (!currentPlayer || !currentPlayer.isHuman) return;
-
-        // If player has current research and enough progress, research it immediately
-        if (currentPlayer.currentResearch) {
-          const researchCost = getResearchCost(currentPlayer.currentResearch);
-          const currentProgress = currentPlayer.currentResearchProgress || 0;
-          if (currentProgress >= researchCost) {
-            // Research the technology immediately
-            const success = this.game.researchTechnology(currentPlayer.id, currentPlayer.currentResearch);
-            if (success) {
-              console.log(`Researched ${currentPlayer.currentResearch} by clicking lightbulb`);
-              // The status will update automatically when the UI refreshes
-              return;
-            }
-          }
-        }
-
-        // Otherwise, open technology selection modal
-        TechnologyUI.handleTechnologyShortcut(this.game);
-      });
-      
-      // Make lightbulb visually clickable
-      lightbulb.style.cursor = 'pointer';
-    }
   }
 
   private onWindowDrag = (e: MouseEvent) => {
     if (!this.isDragging) return;
-    
+
     const x = e.clientX - this.dragOffset.x;
     const y = e.clientY - this.dragOffset.y;
-    
+
     // Keep window within viewport bounds
     const maxX = window.innerWidth - this.window.offsetWidth;
     const maxY = window.innerHeight - this.window.offsetHeight;
-    
+
     this.window.style.left = Math.max(0, Math.min(x, maxX)) + 'px';
     this.window.style.top = Math.max(0, Math.min(y, maxY)) + 'px';
   };
@@ -106,7 +76,7 @@ export class Status {
     if (unit && !this.isCurrentPlayerHuman()) {
       return;
     }
-    
+
     this.selectedUnit = unit;
     this.selectedCity = null; // Clear city selection when unit is selected
     this.updateDisplay();
@@ -117,7 +87,7 @@ export class Status {
     if (city && !this.isCurrentPlayerHuman()) {
       return;
     }
-    
+
     this.selectedCity = city;
     this.selectedUnit = null; // Clear unit selection when city is selected
     this.updateDisplay();
@@ -125,19 +95,19 @@ export class Status {
 
   public setEndOfTurnState(isEndOfTurn: boolean): void {
     this.endOfTurnState = isEndOfTurn;
-    
+
     if (isEndOfTurn) {
       // Clear unit/city selections
       this.selectedUnit = null;
       this.selectedCity = null;
-      
+
       // Start blinking effect for "End of Turn"
       this.startEndOfTurnBlinking();
     } else {
       // Stop blinking effect
       this.stopEndOfTurnBlinking();
     }
-    
+
     this.updateDisplay();
   }
 
@@ -231,24 +201,21 @@ export class Status {
   private updateTechProgress(): void {
     const lightbulb = document.getElementById('tech-lightbulb');
     const techName = document.getElementById('tech-name');
-    const techTurns = document.getElementById('tech-turns');
 
-    if (!lightbulb || !techName || !techTurns) return;
+    if (!lightbulb || !techName) return;
 
     // Get current player from game state
     const currentPlayer = this.getCurrentPlayer();
     if (!currentPlayer) {
       // No current player - hide tech progress
       techName.textContent = 'No research';
-      techTurns.textContent = '';
       lightbulb.className = 'lightbulb';
       return;
     }
 
     if (!currentPlayer.currentResearch) {
       // No current research selected
-      techName.textContent = 'Select Research';
-      techTurns.textContent = 'Choose technology';
+      techName.textContent = ' ';
       lightbulb.className = 'lightbulb turns-5-plus'; // Dim lightbulb
       return;
     }
@@ -257,27 +224,24 @@ export class Status {
     const techInfo = getTechnology(currentPlayer.currentResearch);
     const researchCost = getResearchCost(currentPlayer.currentResearch);
     const currentProgress = currentPlayer.currentResearchProgress || 0;
-    
+
     // Calculate science points needed
     const scienceNeeded = Math.max(0, researchCost - currentProgress);
-    
+
     // Update display
     techName.textContent = techInfo.name;
-    
+
     if (scienceNeeded === 0) {
       // Can complete research immediately
-      techTurns.textContent = 'Ready to complete!';
       lightbulb.className = 'lightbulb bright turns-1';
       lightbulb.title = 'Click to complete research of ' + techInfo.name;
     } else {
-      // Show science points needed
-      techTurns.textContent = `${scienceNeeded} more needed`;
       lightbulb.title = 'Current research: ' + techInfo.name + '. Click for options.';
-      
+
       // Set lightbulb brightness based on progress toward completion
       const progress = currentProgress / researchCost;
       lightbulb.className = 'lightbulb';
-      
+
       if (progress >= 0.8) {
         lightbulb.classList.add('turns-1'); // Very close
       } else if (progress >= 0.6) {
@@ -315,7 +279,7 @@ export class Status {
 
     if (this.selectedUnit && this.gameState) {
       const currentPlayer = this.getCurrentPlayer();
-      
+
       if (civilizationElement && currentPlayer) {
         civilizationElement.textContent = currentPlayer.name || 'Unknown';
       }
@@ -370,7 +334,7 @@ export class Status {
   private clearUnitDetails(): void {
     const elements = [
       'unit-civilization',
-      'unit-name', 
+      'unit-name',
       'unit-moves',
       'unit-home',
       'unit-terrain',
@@ -405,7 +369,7 @@ export class Status {
     this.clearPopulationInfo();
     this.clearTechProgress();
     this.clearUnitDetails();
-    
+
     // Show AI player message in the unit name field
     const unitNameElement = document.getElementById('unit-name');
     if (unitNameElement) {
@@ -419,7 +383,7 @@ export class Status {
     const populationElement = document.getElementById('status-population');
     const yearElement = document.getElementById('status-year');
     const goldElement = document.getElementById('status-gold');
-    
+
     if (populationElement) populationElement.textContent = '';
     if (yearElement) yearElement.textContent = '';
     if (goldElement) goldElement.textContent = '';

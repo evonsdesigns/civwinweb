@@ -14,6 +14,8 @@ export interface GameSettings {
 
     // Audio Settings
     masterVolume: number;
+    musicVolume: number;
+    effectsVolume: number;
     musicEnabled: boolean;
     soundEffects: boolean;
 }
@@ -35,6 +37,8 @@ export class SettingsManager {
 
         // Audio Settings
         masterVolume: 80,
+        musicVolume: 70,
+        effectsVolume: 80,
         musicEnabled: true,
         soundEffects: true
     };

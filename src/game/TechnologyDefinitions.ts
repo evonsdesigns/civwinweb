@@ -1,80 +1,82 @@
 // Technology definitions based on Civilization manual
 export const TechnologyType = {
-  // Ancient Era Technologies
+  // Starting Technologies (None prerequisite)
   POTTERY: 'pottery',
-  WARRIOR_CODE: 'warrior_code', 
   ALPHABET: 'alphabet',
   CEREMONIAL_BURIAL: 'ceremonial_burial',
   BRONZE_WORKING: 'bronze_working',
   MASONRY: 'masonry',
   HORSEBACK_RIDING: 'horseback_riding',
-  MYSTICISM: 'mysticism',
-  
-  // Classical Era Technologies  
   THE_WHEEL: 'the_wheel',
-  IRON_WORKING: 'iron_working',
-  WRITING: 'writing',
-  MAP_MAKING: 'map_making',
-  MATHEMATICS: 'mathematics',
-  CURRENCY: 'currency',
-  CONSTRUCTION: 'construction',
-  THE_REPUBLIC: 'the_republic',
   
-  // Medieval Era Technologies
-  CHIVALRY: 'chivalry',
+  // Early Technologies
+  CURRENCY: 'currency',
+  IRON_WORKING: 'iron_working',
+  MAPMAKING: 'mapmaking',
+  MATHEMATICS: 'mathematics',
+  WRITING: 'writing',
+  CODE_OF_LAWS: 'code_of_laws',
+  MYSTICISM: 'mysticism',
+  MONARCHY: 'monarchy',
+  TRADE: 'trade',
+  CONSTRUCTION: 'construction',
+  
+  // Middle Technologies  
+  LITERACY: 'literacy',
+  THE_REPUBLIC: 'the_republic',
   FEUDALISM: 'feudalism',
-  MONOTHEISM: 'monotheism',
-  THEOLOGY: 'theology',
-  POLYTHEISM: 'polytheism',
-  SEAFARING: 'seafaring',
+  CHIVALRY: 'chivalry',
+  BRIDGE_BUILDING: 'bridge_building',
+  ENGINEERING: 'engineering',
   ASTRONOMY: 'astronomy',
   NAVIGATION: 'navigation',
-  
-  // Renaissance Era Technologies
-  GUNPOWDER: 'gunpowder',
+  BANKING: 'banking',
   INVENTION: 'invention',
-  UNIVERSITY: 'university',
   PHILOSOPHY: 'philosophy',
-  MEDICINE: 'medicine',
-  CHEMISTRY: 'chemistry',
+  DEMOCRACY: 'democracy',
+  UNIVERSITY: 'university',
   PHYSICS: 'physics',
-  METALLURGY: 'metallurgy',
   
-  // Industrial Era Technologies
+  // Advanced Technologies
+  GUNPOWDER: 'gunpowder',
+  MEDICINE: 'medicine',
+  METALLURGY: 'metallurgy',
+  CHEMISTRY: 'chemistry',
+  THEORY_OF_GRAVITY: 'theory_of_gravity',
   STEAM_ENGINE: 'steam_engine',
   MAGNETISM: 'magnetism',
+  EXPLOSIVES: 'explosives',
+  RAILROAD: 'railroad',
   ELECTRICITY: 'electricity',
   STEEL: 'steel',
   INDUSTRIALIZATION: 'industrialization',
   CONSCRIPTION: 'conscription',
   THE_CORPORATION: 'the_corporation',
-  BANKING: 'banking',
+  REFINING: 'refining',
+  RELIGION: 'religion',
   
-  // Modern Era Technologies
+  // Modern Technologies
   COMBUSTION: 'combustion',
-  AUTOMOBILE: 'automobile',
   ELECTRONICS: 'electronics',
-  RADIO: 'radio',
+  AUTOMOBILE: 'automobile',
   FLIGHT: 'flight',
   ADVANCED_FLIGHT: 'advanced_flight',
-  ROCKETRY: 'rocketry',
-  NUCLEAR_FISSION: 'nuclear_fission',
-  
-  // Information Era Technologies
-  COMPUTERS: 'computers',
-  ROBOTICS: 'robotics',
-  SPACE_FLIGHT: 'space_flight',
-  GENETIC_ENGINEERING: 'genetic_engineering',
-  LABOR_UNION: 'labor_union',
+  ATOMIC_THEORY: 'atomic_theory',
   MASS_PRODUCTION: 'mass_production',
-  
-  // Government Technologies
-  MONARCHY: 'monarchy',
-  DEMOCRACY: 'democracy',
+  NUCLEAR_FISSION: 'nuclear_fission',
+  NUCLEAR_POWER: 'nuclear_power',
+  ROCKETRY: 'rocketry',
+  COMPUTERS: 'computers',
+  SPACE_FLIGHT: 'space_flight',
+  PLASTICS: 'plastics',
   COMMUNISM: 'communism',
-  ECONOMICS: 'economics',
-  LITERACY: 'literacy',
-  TRADE: 'trade'
+  LABOR_UNION: 'labor_union',
+  RECYCLING: 'recycling',
+  ROBOTICS: 'robotics',
+  SUPERCONDUCTOR: 'superconductor',
+  GENETIC_ENGINEERING: 'genetic_engineering',
+  FUSION_POWER: 'fusion_power',
+  FUTURE_TECH: 'future_tech'
 } as const;
 
 export type TechnologyType = typeof TechnologyType[keyof typeof TechnologyType];
@@ -108,9 +110,9 @@ export const TechnologyEra = {
 
 export type TechnologyEra = typeof TechnologyEra[keyof typeof TechnologyEra];
 
-// Complete technology tree based on Civilization manual
+// Complete technology tree based on authentic Civilization 1 manual
 export const TECHNOLOGY_DEFINITIONS: Record<TechnologyType, Technology> = {
-  // Ancient Era
+  // Starting Technologies (None prerequisite)
   [TechnologyType.POTTERY]: {
     id: TechnologyType.POTTERY,
     name: 'Pottery',
@@ -120,20 +122,8 @@ export const TECHNOLOGY_DEFINITIONS: Record<TechnologyType, Technology> = {
     era: TechnologyEra.ANCIENT,
     description: 'Enables food storage and early civilization development',
     unlocks: {
-      buildings: ['granary']
-    }
-  },
-
-  [TechnologyType.WARRIOR_CODE]: {
-    id: TechnologyType.WARRIOR_CODE,
-    name: 'Warrior Code',
-    type: TechnologyType.WARRIOR_CODE,
-    cost: 6,
-    prerequisites: [],
-    era: TechnologyEra.ANCIENT,
-    description: 'Establishes military traditions and honor',
-    unlocks: {
-      units: ['archer']
+      buildings: ['granary'],
+      wonders: ['hanging_gardens']
     }
   },
 
@@ -145,9 +135,7 @@ export const TECHNOLOGY_DEFINITIONS: Record<TechnologyType, Technology> = {
     prerequisites: [],
     era: TechnologyEra.ANCIENT,
     description: 'Foundation of written communication',
-    unlocks: {
-      buildings: ['library']
-    }
+    unlocks: {}
   },
 
   [TechnologyType.CEREMONIAL_BURIAL]: {
@@ -172,7 +160,8 @@ export const TECHNOLOGY_DEFINITIONS: Record<TechnologyType, Technology> = {
     era: TechnologyEra.ANCIENT,
     description: 'Metal working enables stronger weapons and tools',
     unlocks: {
-      units: ['phalanx', 'spearman']
+      units: ['phalanx'],
+      wonders: ['colossus']
     }
   },
 
@@ -185,7 +174,8 @@ export const TECHNOLOGY_DEFINITIONS: Record<TechnologyType, Technology> = {
     era: TechnologyEra.ANCIENT,
     description: 'Stone construction techniques',
     unlocks: {
-      buildings: ['palace', 'walls']
+      buildings: ['palace', 'city_walls'],
+      wonders: ['great_wall', 'pyramids']
     }
   },
 
@@ -202,31 +192,30 @@ export const TECHNOLOGY_DEFINITIONS: Record<TechnologyType, Technology> = {
     }
   },
 
-  [TechnologyType.MYSTICISM]: {
-    id: TechnologyType.MYSTICISM,
-    name: 'Mysticism',
-    type: TechnologyType.MYSTICISM,
-    cost: 6,
-    prerequisites: [TechnologyType.CEREMONIAL_BURIAL],
-    era: TechnologyEra.ANCIENT,
-    description: 'Spiritual beliefs and religious practices',
-    unlocks: {
-      buildings: ['oracle']
-    }
-  },
-
-  // Classical Era
   [TechnologyType.THE_WHEEL]: {
     id: TechnologyType.THE_WHEEL,
     name: 'The Wheel',
     type: TechnologyType.THE_WHEEL,
     cost: 10,
     prerequisites: [],
-    era: TechnologyEra.CLASSICAL,
+    era: TechnologyEra.ANCIENT,
     description: 'Revolutionary invention enabling transportation and machinery',
     unlocks: {
-      units: ['chariot'],
-      improvements: ['roads']
+      units: ['chariot']
+    }
+  },
+
+  // Early Technologies
+  [TechnologyType.CURRENCY]: {
+    id: TechnologyType.CURRENCY,
+    name: 'Currency',
+    type: TechnologyType.CURRENCY,
+    cost: 14,
+    prerequisites: [TechnologyType.BRONZE_WORKING],
+    era: TechnologyEra.CLASSICAL,
+    description: 'Standardized trade and economic systems',
+    unlocks: {
+      buildings: ['marketplace']
     }
   },
 
@@ -243,6 +232,33 @@ export const TECHNOLOGY_DEFINITIONS: Record<TechnologyType, Technology> = {
     }
   },
 
+  [TechnologyType.MAPMAKING]: {
+    id: TechnologyType.MAPMAKING,
+    name: 'Map Making',
+    type: TechnologyType.MAPMAKING,
+    cost: 14,
+    prerequisites: [TechnologyType.ALPHABET],
+    era: TechnologyEra.CLASSICAL,
+    description: 'Navigation and exploration techniques',
+    unlocks: {
+      units: ['trireme'],
+      wonders: ['lighthouse']
+    }
+  },
+
+  [TechnologyType.MATHEMATICS]: {
+    id: TechnologyType.MATHEMATICS,
+    name: 'Mathematics',
+    type: TechnologyType.MATHEMATICS,
+    cost: 12,
+    prerequisites: [TechnologyType.ALPHABET, TechnologyType.MASONRY],
+    era: TechnologyEra.CLASSICAL,
+    description: 'Numerical systems and calculations',
+    unlocks: {
+      units: ['catapult']
+    }
+  },
+
   [TechnologyType.WRITING]: {
     id: TechnologyType.WRITING,
     name: 'Writing',
@@ -253,47 +269,57 @@ export const TECHNOLOGY_DEFINITIONS: Record<TechnologyType, Technology> = {
     description: 'Record keeping and communication advancement',
     unlocks: {
       units: ['diplomat'],
+      buildings: ['library']
+    }
+  },
+
+  [TechnologyType.CODE_OF_LAWS]: {
+    id: TechnologyType.CODE_OF_LAWS,
+    name: 'Code of Laws',
+    type: TechnologyType.CODE_OF_LAWS,
+    cost: 14,
+    prerequisites: [TechnologyType.ALPHABET],
+    era: TechnologyEra.CLASSICAL,
+    description: 'Legal system and civil organization',
+    unlocks: {
       buildings: ['courthouse']
     }
   },
 
-  [TechnologyType.MAP_MAKING]: {
-    id: TechnologyType.MAP_MAKING,
-    name: 'Map Making',
-    type: TechnologyType.MAP_MAKING,
-    cost: 14,
-    prerequisites: [TechnologyType.ALPHABET],
-    era: TechnologyEra.CLASSICAL,
-    description: 'Navigation and exploration techniques',
+  [TechnologyType.MYSTICISM]: {
+    id: TechnologyType.MYSTICISM,
+    name: 'Mysticism',
+    type: TechnologyType.MYSTICISM,
+    cost: 8,
+    prerequisites: [TechnologyType.CEREMONIAL_BURIAL],
+    era: TechnologyEra.ANCIENT,
+    description: 'Spiritual beliefs and religious practices',
     unlocks: {
-      units: ['trireme']
+      buildings: ['oracle']
     }
   },
 
-  [TechnologyType.MATHEMATICS]: {
-    id: TechnologyType.MATHEMATICS,
-    name: 'Mathematics',
-    type: TechnologyType.MATHEMATICS,
-    cost: 12,
-    prerequisites: [TechnologyType.ALPHABET],
+  [TechnologyType.MONARCHY]: {
+    id: TechnologyType.MONARCHY,
+    name: 'Monarchy',
+    type: TechnologyType.MONARCHY,
+    cost: 16,
+    prerequisites: [TechnologyType.CEREMONIAL_BURIAL, TechnologyType.CODE_OF_LAWS],
     era: TechnologyEra.CLASSICAL,
-    description: 'Numerical systems and calculations',
-    unlocks: {
-      units: ['catapult'],
-      buildings: ['colosseum']
-    }
+    description: 'Hereditary rule and royal authority',
+    unlocks: {}
   },
 
-  [TechnologyType.CURRENCY]: {
-    id: TechnologyType.CURRENCY,
-    name: 'Currency',
-    type: TechnologyType.CURRENCY,
-    cost: 14,
-    prerequisites: [TechnologyType.BRONZE_WORKING],
+  [TechnologyType.TRADE]: {
+    id: TechnologyType.TRADE,
+    name: 'Trade',
+    type: TechnologyType.TRADE,
+    cost: 16,
+    prerequisites: [TechnologyType.CURRENCY, TechnologyType.CODE_OF_LAWS],
     era: TechnologyEra.CLASSICAL,
-    description: 'Standardized trade and economic systems',
+    description: 'Commercial exchange and merchant activity',
     unlocks: {
-      buildings: ['marketplace']
+      units: ['caravan']
     }
   },
 
@@ -301,13 +327,27 @@ export const TECHNOLOGY_DEFINITIONS: Record<TechnologyType, Technology> = {
     id: TechnologyType.CONSTRUCTION,
     name: 'Construction',
     type: TechnologyType.CONSTRUCTION,
-    cost: 16,
-    prerequisites: [TechnologyType.MASONRY, TechnologyType.THE_WHEEL],
+    cost: 18,
+    prerequisites: [TechnologyType.MASONRY, TechnologyType.CURRENCY],
     era: TechnologyEra.CLASSICAL,
     description: 'Advanced building techniques',
     unlocks: {
-      buildings: ['aqueduct'],
+      buildings: ['aqueduct', 'colosseum'],
       improvements: ['fortress']
+    }
+  },
+
+  // Middle Technologies
+  [TechnologyType.LITERACY]: {
+    id: TechnologyType.LITERACY,
+    name: 'Literacy',
+    type: TechnologyType.LITERACY,
+    cost: 18,
+    prerequisites: [TechnologyType.WRITING, TechnologyType.CODE_OF_LAWS],
+    era: TechnologyEra.CLASSICAL,
+    description: 'Widespread reading and writing ability',
+    unlocks: {
+      wonders: ['great_library']
     }
   },
 
@@ -315,86 +355,66 @@ export const TECHNOLOGY_DEFINITIONS: Record<TechnologyType, Technology> = {
     id: TechnologyType.THE_REPUBLIC,
     name: 'The Republic',
     type: TechnologyType.THE_REPUBLIC,
-    cost: 16,
-    prerequisites: [TechnologyType.WRITING],
+    cost: 20,
+    prerequisites: [TechnologyType.CODE_OF_LAWS, TechnologyType.LITERACY],
     era: TechnologyEra.CLASSICAL,
     description: 'Democratic governance and civic participation',
-    unlocks: {
-      governments: ['republic']
-    }
-  },
-
-  // Medieval Era
-  [TechnologyType.CHIVALRY]: {
-    id: TechnologyType.CHIVALRY,
-    name: 'Chivalry',
-    type: TechnologyType.CHIVALRY,
-    cost: 20,
-    prerequisites: [TechnologyType.HORSEBACK_RIDING, TechnologyType.FEUDALISM],
-    era: TechnologyEra.MEDIEVAL,
-    description: 'Code of honor for mounted warriors',
-    unlocks: {
-      units: ['knights']
-    }
+    unlocks: {}
   },
 
   [TechnologyType.FEUDALISM]: {
     id: TechnologyType.FEUDALISM,
     name: 'Feudalism',
     type: TechnologyType.FEUDALISM,
-    cost: 18,
-    prerequisites: [TechnologyType.THE_REPUBLIC],
+    cost: 20,
+    prerequisites: [TechnologyType.MASONRY, TechnologyType.MONARCHY],
     era: TechnologyEra.MEDIEVAL,
     description: 'Medieval social and political system',
-    unlocks: {
-      buildings: ['castle']
-    }
+    unlocks: {}
   },
 
-  [TechnologyType.MONOTHEISM]: {
-    id: TechnologyType.MONOTHEISM,
-    name: 'Monotheism',
-    type: TechnologyType.MONOTHEISM,
-    cost: 18,
-    prerequisites: [TechnologyType.MYSTICISM],
-    era: TechnologyEra.MEDIEVAL,
-    description: 'Belief in a single divine entity',
-    unlocks: {
-      buildings: ['cathedral']
-    }
-  },
-
-  [TechnologyType.THEOLOGY]: {
-    id: TechnologyType.THEOLOGY,
-    name: 'Theology',
-    type: TechnologyType.THEOLOGY,
-    cost: 20,
-    prerequisites: [TechnologyType.MONOTHEISM],
-    era: TechnologyEra.MEDIEVAL,
-    description: 'Systematic study of religious doctrine',
-    unlocks: {
-      wonders: ['michelangelos_chapel']
-    }
-  },
-
-  [TechnologyType.NAVIGATION]: {
-    id: TechnologyType.NAVIGATION,
-    name: 'Navigation',
-    type: TechnologyType.NAVIGATION,
+  [TechnologyType.CHIVALRY]: {
+    id: TechnologyType.CHIVALRY,
+    name: 'Chivalry',
+    type: TechnologyType.CHIVALRY,
     cost: 22,
-    prerequisites: [TechnologyType.MAP_MAKING, TechnologyType.ASTRONOMY],
+    prerequisites: [TechnologyType.FEUDALISM, TechnologyType.HORSEBACK_RIDING],
     era: TechnologyEra.MEDIEVAL,
-    description: 'Advanced seafaring and exploration',
+    description: 'Code of honor for mounted warriors',
     unlocks: {
-      units: ['sail']
+      units: ['knight']
     }
+  },
+
+  [TechnologyType.BRIDGE_BUILDING]: {
+    id: TechnologyType.BRIDGE_BUILDING,
+    name: 'Bridge Building',
+    type: TechnologyType.BRIDGE_BUILDING,
+    cost: 20,
+    prerequisites: [TechnologyType.IRON_WORKING, TechnologyType.ALPHABET],
+    era: TechnologyEra.CLASSICAL,
+    description: 'Engineering techniques for crossing rivers',
+    unlocks: {
+      improvements: ['road_on_river']
+    }
+  },
+
+  [TechnologyType.ENGINEERING]: {
+    id: TechnologyType.ENGINEERING,
+    name: 'Engineering',
+    type: TechnologyType.ENGINEERING,
+    cost: 24,
+    prerequisites: [TechnologyType.THE_WHEEL, TechnologyType.CONSTRUCTION],
+    era: TechnologyEra.CLASSICAL,
+    description: 'Advanced construction and mechanical principles',
+    unlocks: {}
   },
 
   [TechnologyType.ASTRONOMY]: {
     id: TechnologyType.ASTRONOMY,
     name: 'Astronomy',
     type: TechnologyType.ASTRONOMY,
-    cost: 20,
+    cost: 22,
     prerequisites: [TechnologyType.MYSTICISM, TechnologyType.MATHEMATICS],
     era: TechnologyEra.MEDIEVAL,
     description: 'Study of celestial bodies',
@@ -403,17 +423,30 @@ export const TECHNOLOGY_DEFINITIONS: Record<TechnologyType, Technology> = {
     }
   },
 
-  // Renaissance Era
-  [TechnologyType.GUNPOWDER]: {
-    id: TechnologyType.GUNPOWDER,
-    name: 'Gunpowder',
-    type: TechnologyType.GUNPOWDER,
-    cost: 26,
-    prerequisites: [TechnologyType.IRON_WORKING, TechnologyType.INVENTION],
-    era: TechnologyEra.RENAISSANCE,
-    description: 'Explosive powder revolutionizes warfare',
+  [TechnologyType.NAVIGATION]: {
+    id: TechnologyType.NAVIGATION,
+    name: 'Navigation',
+    type: TechnologyType.NAVIGATION,
+    cost: 24,
+    prerequisites: [TechnologyType.MAPMAKING, TechnologyType.ASTRONOMY],
+    era: TechnologyEra.MEDIEVAL,
+    description: 'Advanced seafaring and exploration',
     unlocks: {
-      units: ['musketeers']
+      units: ['sail'],
+      wonders: ['magellans_expedition']
+    }
+  },
+
+  [TechnologyType.BANKING]: {
+    id: TechnologyType.BANKING,
+    name: 'Banking',
+    type: TechnologyType.BANKING,
+    cost: 24,
+    prerequisites: [TechnologyType.TRADE, TechnologyType.THE_REPUBLIC],
+    era: TechnologyEra.MEDIEVAL,
+    description: 'Financial institutions and credit systems',
+    unlocks: {
+      buildings: ['bank']
     }
   },
 
@@ -421,21 +454,41 @@ export const TECHNOLOGY_DEFINITIONS: Record<TechnologyType, Technology> = {
     id: TechnologyType.INVENTION,
     name: 'Invention',
     type: TechnologyType.INVENTION,
-    cost: 24,
-    prerequisites: [TechnologyType.CONSTRUCTION],
+    cost: 26,
+    prerequisites: [TechnologyType.ENGINEERING, TechnologyType.LITERACY],
     era: TechnologyEra.RENAISSANCE,
     description: 'Systematic approach to creating new technologies',
-    unlocks: {
-      wonders: ['leonardo_workshop']
-    }
+    unlocks: {}
+  },
+
+  [TechnologyType.PHILOSOPHY]: {
+    id: TechnologyType.PHILOSOPHY,
+    name: 'Philosophy',
+    type: TechnologyType.PHILOSOPHY,
+    cost: 24,
+    prerequisites: [TechnologyType.MYSTICISM, TechnologyType.LITERACY],
+    era: TechnologyEra.RENAISSANCE,
+    description: 'Systematic thinking about existence and knowledge',
+    unlocks: {}
+  },
+
+  [TechnologyType.DEMOCRACY]: {
+    id: TechnologyType.DEMOCRACY,
+    name: 'Democracy',
+    type: TechnologyType.DEMOCRACY,
+    cost: 28,
+    prerequisites: [TechnologyType.PHILOSOPHY, TechnologyType.LITERACY],
+    era: TechnologyEra.RENAISSANCE,
+    description: 'Government by the people',
+    unlocks: {}
   },
 
   [TechnologyType.UNIVERSITY]: {
     id: TechnologyType.UNIVERSITY,
     name: 'University',
     type: TechnologyType.UNIVERSITY,
-    cost: 24,
-    prerequisites: [TechnologyType.MATHEMATICS],
+    cost: 26,
+    prerequisites: [TechnologyType.MATHEMATICS, TechnologyType.PHILOSOPHY],
     era: TechnologyEra.RENAISSANCE,
     description: 'Higher learning and research institutions',
     unlocks: {
@@ -443,16 +496,41 @@ export const TECHNOLOGY_DEFINITIONS: Record<TechnologyType, Technology> = {
     }
   },
 
-  [TechnologyType.PHILOSOPHY]: {
-    id: TechnologyType.PHILOSOPHY,
-    name: 'Philosophy',
-    type: TechnologyType.PHILOSOPHY,
-    cost: 22,
-    prerequisites: [TechnologyType.MYSTICISM, TechnologyType.LITERACY],
+  [TechnologyType.PHYSICS]: {
+    id: TechnologyType.PHYSICS,
+    name: 'Physics',
+    type: TechnologyType.PHYSICS,
+    cost: 28,
+    prerequisites: [TechnologyType.MATHEMATICS, TechnologyType.NAVIGATION],
     era: TechnologyEra.RENAISSANCE,
-    description: 'Systematic thinking about existence and knowledge',
+    description: 'Understanding of natural forces and matter',
+    unlocks: {}
+  },
+
+  // Advanced Technologies
+  [TechnologyType.GUNPOWDER]: {
+    id: TechnologyType.GUNPOWDER,
+    name: 'Gunpowder',
+    type: TechnologyType.GUNPOWDER,
+    cost: 30,
+    prerequisites: [TechnologyType.INVENTION, TechnologyType.IRON_WORKING],
+    era: TechnologyEra.RENAISSANCE,
+    description: 'Explosive powder revolutionizes warfare',
     unlocks: {
-      governments: ['democracy']
+      units: ['musketeer']
+    }
+  },
+
+  [TechnologyType.MEDICINE]: {
+    id: TechnologyType.MEDICINE,
+    name: 'Medicine',
+    type: TechnologyType.MEDICINE,
+    cost: 28,
+    prerequisites: [TechnologyType.PHILOSOPHY, TechnologyType.TRADE],
+    era: TechnologyEra.RENAISSANCE,
+    description: 'Healing arts and medical knowledge',
+    unlocks: {
+      wonders: ['shakespeares_theatre']
     }
   },
 
@@ -460,7 +538,7 @@ export const TECHNOLOGY_DEFINITIONS: Record<TechnologyType, Technology> = {
     id: TechnologyType.METALLURGY,
     name: 'Metallurgy',
     type: TechnologyType.METALLURGY,
-    cost: 28,
+    cost: 32,
     prerequisites: [TechnologyType.GUNPOWDER, TechnologyType.UNIVERSITY],
     era: TechnologyEra.RENAISSANCE,
     description: 'Advanced metal working and alloys',
@@ -469,18 +547,40 @@ export const TECHNOLOGY_DEFINITIONS: Record<TechnologyType, Technology> = {
     }
   },
 
-  // Industrial Era
+  [TechnologyType.CHEMISTRY]: {
+    id: TechnologyType.CHEMISTRY,
+    name: 'Chemistry',
+    type: TechnologyType.CHEMISTRY,
+    cost: 30,
+    prerequisites: [TechnologyType.UNIVERSITY, TechnologyType.MEDICINE],
+    era: TechnologyEra.RENAISSANCE,
+    description: 'Study of matter and chemical reactions',
+    unlocks: {}
+  },
+
+  [TechnologyType.THEORY_OF_GRAVITY]: {
+    id: TechnologyType.THEORY_OF_GRAVITY,
+    name: 'Theory of Gravity',
+    type: TechnologyType.THEORY_OF_GRAVITY,
+    cost: 32,
+    prerequisites: [TechnologyType.ASTRONOMY, TechnologyType.UNIVERSITY],
+    era: TechnologyEra.RENAISSANCE,
+    description: 'Understanding of gravitational forces',
+    unlocks: {
+      wonders: ['isaac_newtons_college']
+    }
+  },
+
   [TechnologyType.STEAM_ENGINE]: {
     id: TechnologyType.STEAM_ENGINE,
     name: 'Steam Engine',
     type: TechnologyType.STEAM_ENGINE,
-    cost: 32,
-    prerequisites: [TechnologyType.INVENTION, TechnologyType.PHYSICS],
+    cost: 34,
+    prerequisites: [TechnologyType.PHYSICS, TechnologyType.INVENTION],
     era: TechnologyEra.INDUSTRIAL,
     description: 'Mechanical power from steam pressure',
     unlocks: {
-      units: ['ironclad'],
-      buildings: ['factory']
+      units: ['ironclad']
     }
   },
 
@@ -488,8 +588,8 @@ export const TECHNOLOGY_DEFINITIONS: Record<TechnologyType, Technology> = {
     id: TechnologyType.MAGNETISM,
     name: 'Magnetism',
     type: TechnologyType.MAGNETISM,
-    cost: 30,
-    prerequisites: [TechnologyType.PHYSICS, TechnologyType.NAVIGATION],
+    cost: 34,
+    prerequisites: [TechnologyType.NAVIGATION, TechnologyType.PHYSICS],
     era: TechnologyEra.INDUSTRIAL,
     description: 'Understanding of magnetic forces',
     unlocks: {
@@ -497,25 +597,48 @@ export const TECHNOLOGY_DEFINITIONS: Record<TechnologyType, Technology> = {
     }
   },
 
+  [TechnologyType.EXPLOSIVES]: {
+    id: TechnologyType.EXPLOSIVES,
+    name: 'Explosives',
+    type: TechnologyType.EXPLOSIVES,
+    cost: 34,
+    prerequisites: [TechnologyType.GUNPOWDER, TechnologyType.CHEMISTRY],
+    era: TechnologyEra.INDUSTRIAL,
+    description: 'Powerful explosive compounds for mining and warfare',
+    unlocks: {}
+  },
+
+  [TechnologyType.RAILROAD]: {
+    id: TechnologyType.RAILROAD,
+    name: 'Railroad',
+    type: TechnologyType.RAILROAD,
+    cost: 36,
+    prerequisites: [TechnologyType.STEAM_ENGINE, TechnologyType.BRIDGE_BUILDING],
+    era: TechnologyEra.INDUSTRIAL,
+    description: 'Steam-powered transportation networks',
+    unlocks: {
+      improvements: ['railroad'],
+      wonders: ['darwins_voyage']
+    }
+  },
+
   [TechnologyType.ELECTRICITY]: {
     id: TechnologyType.ELECTRICITY,
     name: 'Electricity',
     type: TechnologyType.ELECTRICITY,
-    cost: 34,
-    prerequisites: [TechnologyType.METALLURGY, TechnologyType.MAGNETISM],
+    cost: 38,
+    prerequisites: [TechnologyType.MAGNETISM, TechnologyType.METALLURGY],
     era: TechnologyEra.INDUSTRIAL,
     description: 'Harnessing electrical power',
-    unlocks: {
-      buildings: ['hydro_plant']
-    }
+    unlocks: {}
   },
 
   [TechnologyType.STEEL]: {
     id: TechnologyType.STEEL,
     name: 'Steel',
     type: TechnologyType.STEEL,
-    cost: 36,
-    prerequisites: [TechnologyType.ELECTRICITY, TechnologyType.INDUSTRIALIZATION],
+    cost: 40,
+    prerequisites: [TechnologyType.METALLURGY, TechnologyType.INDUSTRIALIZATION],
     era: TechnologyEra.INDUSTRIAL,
     description: 'Superior metal alloy production',
     unlocks: {
@@ -527,12 +650,14 @@ export const TECHNOLOGY_DEFINITIONS: Record<TechnologyType, Technology> = {
     id: TechnologyType.INDUSTRIALIZATION,
     name: 'Industrialization',
     type: TechnologyType.INDUSTRIALIZATION,
-    cost: 34,
-    prerequisites: [TechnologyType.STEAM_ENGINE, TechnologyType.THE_CORPORATION],
+    cost: 38,
+    prerequisites: [TechnologyType.RAILROAD, TechnologyType.BANKING],
     era: TechnologyEra.INDUSTRIAL,
     description: 'Mass production and factory systems',
     unlocks: {
-      units: ['transport']
+      units: ['transport'],
+      buildings: ['factory'],
+      wonders: ['womens_suffrage']
     }
   },
 
@@ -540,22 +665,60 @@ export const TECHNOLOGY_DEFINITIONS: Record<TechnologyType, Technology> = {
     id: TechnologyType.CONSCRIPTION,
     name: 'Conscription',
     type: TechnologyType.CONSCRIPTION,
-    cost: 32,
-    prerequisites: [TechnologyType.THE_REPUBLIC, TechnologyType.METALLURGY],
+    cost: 36,
+    prerequisites: [TechnologyType.THE_REPUBLIC, TechnologyType.EXPLOSIVES],
     era: TechnologyEra.INDUSTRIAL,
     description: 'Mandatory military service',
     unlocks: {
-      units: ['riflemen']
+      units: ['rifleman']
     }
   },
 
-  // Modern Era
+  [TechnologyType.THE_CORPORATION]: {
+    id: TechnologyType.THE_CORPORATION,
+    name: 'The Corporation',
+    type: TechnologyType.THE_CORPORATION,
+    cost: 40,
+    prerequisites: [TechnologyType.BANKING, TechnologyType.INDUSTRIALIZATION],
+    era: TechnologyEra.INDUSTRIAL,
+    description: 'Large-scale business organization',
+    unlocks: {}
+  },
+
+  [TechnologyType.REFINING]: {
+    id: TechnologyType.REFINING,
+    name: 'Refining',
+    type: TechnologyType.REFINING,
+    cost: 42,
+    prerequisites: [TechnologyType.CHEMISTRY, TechnologyType.THE_CORPORATION],
+    era: TechnologyEra.INDUSTRIAL,
+    description: 'Processing of raw materials into useful products',
+    unlocks: {
+      buildings: ['power_plant']
+    }
+  },
+
+  [TechnologyType.RELIGION]: {
+    id: TechnologyType.RELIGION,
+    name: 'Religion',
+    type: TechnologyType.RELIGION,
+    cost: 26,
+    prerequisites: [TechnologyType.PHILOSOPHY, TechnologyType.WRITING],
+    era: TechnologyEra.RENAISSANCE,
+    description: 'Organized spiritual beliefs and practices that unite communities',
+    unlocks: {
+      buildings: ['cathedral'],
+      wonders: ['js_bachs_cathedral', 'michelangelos_chapel']
+    }
+  },
+
+  // Modern Technologies
   [TechnologyType.COMBUSTION]: {
     id: TechnologyType.COMBUSTION,
     name: 'Combustion',
     type: TechnologyType.COMBUSTION,
-    cost: 40,
-    prerequisites: [TechnologyType.STEEL, TechnologyType.ELECTRICITY],
+    cost: 44,
+    prerequisites: [TechnologyType.REFINING, TechnologyType.EXPLOSIVES],
     era: TechnologyEra.MODERN,
     description: 'Internal combustion engines',
     unlocks: {
@@ -563,11 +726,25 @@ export const TECHNOLOGY_DEFINITIONS: Record<TechnologyType, Technology> = {
     }
   },
 
+  [TechnologyType.ELECTRONICS]: {
+    id: TechnologyType.ELECTRONICS,
+    name: 'Electronics',
+    type: TechnologyType.ELECTRONICS,
+    cost: 42,
+    prerequisites: [TechnologyType.ELECTRICITY],
+    era: TechnologyEra.MODERN,
+    description: 'Electronic circuits and devices',
+    unlocks: {
+      buildings: ['hydro_plant'],
+      wonders: ['hoover_dam']
+    }
+  },
+
   [TechnologyType.AUTOMOBILE]: {
     id: TechnologyType.AUTOMOBILE,
     name: 'Automobile',
     type: TechnologyType.AUTOMOBILE,
-    cost: 42,
+    cost: 46,
     prerequisites: [TechnologyType.COMBUSTION, TechnologyType.STEEL],
     era: TechnologyEra.MODERN,
     description: 'Self-propelled vehicles',
@@ -580,8 +757,8 @@ export const TECHNOLOGY_DEFINITIONS: Record<TechnologyType, Technology> = {
     id: TechnologyType.FLIGHT,
     name: 'Flight',
     type: TechnologyType.FLIGHT,
-    cost: 44,
-    prerequisites: [TechnologyType.COMBUSTION, TechnologyType.ELECTRONICS],
+    cost: 48,
+    prerequisites: [TechnologyType.COMBUSTION, TechnologyType.PHYSICS],
     era: TechnologyEra.MODERN,
     description: 'Powered aircraft and aviation',
     unlocks: {
@@ -593,8 +770,8 @@ export const TECHNOLOGY_DEFINITIONS: Record<TechnologyType, Technology> = {
     id: TechnologyType.ADVANCED_FLIGHT,
     name: 'Advanced Flight',
     type: TechnologyType.ADVANCED_FLIGHT,
-    cost: 48,
-    prerequisites: [TechnologyType.FLIGHT, TechnologyType.RADIO],
+    cost: 52,
+    prerequisites: [TechnologyType.FLIGHT, TechnologyType.ELECTRICITY],
     era: TechnologyEra.MODERN,
     description: 'Advanced aviation and bomber aircraft',
     unlocks: {
@@ -602,11 +779,62 @@ export const TECHNOLOGY_DEFINITIONS: Record<TechnologyType, Technology> = {
     }
   },
 
+  [TechnologyType.ATOMIC_THEORY]: {
+    id: TechnologyType.ATOMIC_THEORY,
+    name: 'Atomic Theory',
+    type: TechnologyType.ATOMIC_THEORY,
+    cost: 50,
+    prerequisites: [TechnologyType.THEORY_OF_GRAVITY, TechnologyType.PHYSICS],
+    era: TechnologyEra.MODERN,
+    description: 'Understanding of atomic structure and forces',
+    unlocks: {}
+  },
+
+  [TechnologyType.MASS_PRODUCTION]: {
+    id: TechnologyType.MASS_PRODUCTION,
+    name: 'Mass Production',
+    type: TechnologyType.MASS_PRODUCTION,
+    cost: 50,
+    prerequisites: [TechnologyType.AUTOMOBILE, TechnologyType.THE_CORPORATION],
+    era: TechnologyEra.MODERN,
+    description: 'Assembly line manufacturing',
+    unlocks: {
+      units: ['submarine'],
+      buildings: ['mass_transit']
+    }
+  },
+
+  [TechnologyType.NUCLEAR_FISSION]: {
+    id: TechnologyType.NUCLEAR_FISSION,
+    name: 'Nuclear Fission',
+    type: TechnologyType.NUCLEAR_FISSION,
+    cost: 54,
+    prerequisites: [TechnologyType.MASS_PRODUCTION, TechnologyType.ATOMIC_THEORY],
+    era: TechnologyEra.MODERN,
+    description: 'Splitting atoms for energy and weapons',
+    unlocks: {
+      wonders: ['manhattan_project']
+    }
+  },
+
+  [TechnologyType.NUCLEAR_POWER]: {
+    id: TechnologyType.NUCLEAR_POWER,
+    name: 'Nuclear Power',
+    type: TechnologyType.NUCLEAR_POWER,
+    cost: 56,
+    prerequisites: [TechnologyType.NUCLEAR_FISSION, TechnologyType.ELECTRONICS],
+    era: TechnologyEra.MODERN,
+    description: 'Peaceful use of nuclear energy',
+    unlocks: {
+      buildings: ['nuclear_plant']
+    }
+  },
+
   [TechnologyType.ROCKETRY]: {
     id: TechnologyType.ROCKETRY,
     name: 'Rocketry',
     type: TechnologyType.ROCKETRY,
-    cost: 50,
+    cost: 58,
     prerequisites: [TechnologyType.ADVANCED_FLIGHT, TechnologyType.ELECTRONICS],
     era: TechnologyEra.MODERN,
     description: 'Rocket propulsion technology',
@@ -615,266 +843,16 @@ export const TECHNOLOGY_DEFINITIONS: Record<TechnologyType, Technology> = {
     }
   },
 
-  [TechnologyType.NUCLEAR_FISSION]: {
-    id: TechnologyType.NUCLEAR_FISSION,
-    name: 'Nuclear Fission',
-    type: TechnologyType.NUCLEAR_FISSION,
-    cost: 52,
-    prerequisites: [TechnologyType.MASS_PRODUCTION, TechnologyType.ELECTRONICS],
-    era: TechnologyEra.MODERN,
-    description: 'Splitting atoms for energy and weapons',
-    unlocks: {
-      wonders: ['manhattan_project'],
-      buildings: ['nuclear_plant']
-    }
-  },
-
-  // Information Era
-  [TechnologyType.ROBOTICS]: {
-    id: TechnologyType.ROBOTICS,
-    name: 'Robotics',
-    type: TechnologyType.ROBOTICS,
-    cost: 56,
-    prerequisites: [TechnologyType.COMPUTERS, TechnologyType.MASS_PRODUCTION],
-    era: TechnologyEra.INFORMATION,
-    description: 'Automated machinery and artificial intelligence',
-    unlocks: {
-      units: ['artillery']
-    }
-  },
-
-  [TechnologyType.MASS_PRODUCTION]: {
-    id: TechnologyType.MASS_PRODUCTION,
-    name: 'Mass Production',
-    type: TechnologyType.MASS_PRODUCTION,
-    cost: 46,
-    prerequisites: [TechnologyType.AUTOMOBILE, TechnologyType.ELECTRONICS],
-    era: TechnologyEra.INFORMATION,
-    description: 'Assembly line manufacturing',
-    unlocks: {
-      units: ['submarine']
-    }
-  },
-
-  [TechnologyType.LABOR_UNION]: {
-    id: TechnologyType.LABOR_UNION,
-    name: 'Labor Union',
-    type: TechnologyType.LABOR_UNION,
-    cost: 48,
-    prerequisites: [TechnologyType.MASS_PRODUCTION, TechnologyType.THE_CORPORATION],
-    era: TechnologyEra.INFORMATION,
-    description: 'Worker organization and rights',
-    unlocks: {
-      units: ['mechanized_infantry']
-    }
-  },
-
-  // Additional Technologies
-  [TechnologyType.LITERACY]: {
-    id: TechnologyType.LITERACY,
-    name: 'Literacy',
-    type: TechnologyType.LITERACY,
-    cost: 16,
-    prerequisites: [TechnologyType.WRITING],
-    era: TechnologyEra.CLASSICAL,
-    description: 'Widespread reading and writing ability',
-    unlocks: {
-      buildings: ['library']
-    }
-  },
-
-  [TechnologyType.TRADE]: {
-    id: TechnologyType.TRADE,
-    name: 'Trade',
-    type: TechnologyType.TRADE,
-    cost: 14,
-    prerequisites: [TechnologyType.CURRENCY],
-    era: TechnologyEra.CLASSICAL,
-    description: 'Commercial exchange and merchant activity',
-    unlocks: {
-      units: ['caravan']
-    }
-  },
-
-  [TechnologyType.MONARCHY]: {
-    id: TechnologyType.MONARCHY,
-    name: 'Monarchy',
-    type: TechnologyType.MONARCHY,
-    cost: 18,
-    prerequisites: [TechnologyType.CEREMONIAL_BURIAL],
-    era: TechnologyEra.MEDIEVAL,
-    description: 'Hereditary rule and royal authority',
-    unlocks: {
-      governments: ['monarchy']
-    }
-  },
-
-  [TechnologyType.DEMOCRACY]: {
-    id: TechnologyType.DEMOCRACY,
-    name: 'Democracy',
-    type: TechnologyType.DEMOCRACY,
-    cost: 30,
-    prerequisites: [TechnologyType.PHILOSOPHY, TechnologyType.LITERACY],
-    era: TechnologyEra.RENAISSANCE,
-    description: 'Government by the people',
-    unlocks: {
-      governments: ['democracy']
-    }
-  },
-
-  [TechnologyType.COMMUNISM]: {
-    id: TechnologyType.COMMUNISM,
-    name: 'Communism',
-    type: TechnologyType.COMMUNISM,
-    cost: 38,
-    prerequisites: [TechnologyType.PHILOSOPHY, TechnologyType.INDUSTRIALIZATION],
-    era: TechnologyEra.INDUSTRIAL,
-    description: 'Collective ownership of property',
-    unlocks: {
-      governments: ['communism']
-    }
-  },
-
-  [TechnologyType.ECONOMICS]: {
-    id: TechnologyType.ECONOMICS,
-    name: 'Economics',
-    type: TechnologyType.ECONOMICS,
-    cost: 28,
-    prerequisites: [TechnologyType.BANKING, TechnologyType.UNIVERSITY],
-    era: TechnologyEra.RENAISSANCE,
-    description: 'Study of production, distribution, and consumption',
-    unlocks: {
-      buildings: ['marketplace']
-    }
-  },
-
   [TechnologyType.COMPUTERS]: {
     id: TechnologyType.COMPUTERS,
     name: 'Computers',
     type: TechnologyType.COMPUTERS,
-    cost: 54,
-    prerequisites: [TechnologyType.ELECTRONICS, TechnologyType.NUCLEAR_FISSION],
-    era: TechnologyEra.INFORMATION,
+    cost: 60,
+    prerequisites: [TechnologyType.MATHEMATICS, TechnologyType.ELECTRONICS],
+    era: TechnologyEra.MODERN,
     description: 'Electronic computation and data processing',
     unlocks: {
-      buildings: ['research_lab']
-    }
-  },
-
-  [TechnologyType.ELECTRONICS]: {
-    id: TechnologyType.ELECTRONICS,
-    name: 'Electronics',
-    type: TechnologyType.ELECTRONICS,
-    cost: 38,
-    prerequisites: [TechnologyType.ELECTRICITY, TechnologyType.INDUSTRIALIZATION],
-    era: TechnologyEra.MODERN,
-    description: 'Electronic circuits and devices',
-    unlocks: {
-      buildings: ['electronics_factory']
-    }
-  },
-
-  [TechnologyType.RADIO]: {
-    id: TechnologyType.RADIO,
-    name: 'Radio',
-    type: TechnologyType.RADIO,
-    cost: 36,
-    prerequisites: [TechnologyType.ELECTRONICS],
-    era: TechnologyEra.MODERN,
-    description: 'Wireless communication technology',
-    unlocks: {
-      buildings: ['radio_station']
-    }
-  },
-
-  [TechnologyType.PHYSICS]: {
-    id: TechnologyType.PHYSICS,
-    name: 'Physics',
-    type: TechnologyType.PHYSICS,
-    cost: 26,
-    prerequisites: [TechnologyType.MATHEMATICS, TechnologyType.UNIVERSITY],
-    era: TechnologyEra.RENAISSANCE,
-    description: 'Understanding of natural forces and matter',
-    unlocks: {
-      wonders: ['isaac_newton_college']
-    }
-  },
-
-  [TechnologyType.CHEMISTRY]: {
-    id: TechnologyType.CHEMISTRY,
-    name: 'Chemistry',
-    type: TechnologyType.CHEMISTRY,
-    cost: 28,
-    prerequisites: [TechnologyType.UNIVERSITY, TechnologyType.MEDICINE],
-    era: TechnologyEra.RENAISSANCE,
-    description: 'Study of matter and chemical reactions',
-    unlocks: {
-      buildings: ['hospital']
-    }
-  },
-
-  [TechnologyType.MEDICINE]: {
-    id: TechnologyType.MEDICINE,
-    name: 'Medicine',
-    type: TechnologyType.MEDICINE,
-    cost: 26,
-    prerequisites: [TechnologyType.PHILOSOPHY, TechnologyType.TRADE],
-    era: TechnologyEra.RENAISSANCE,
-    description: 'Healing arts and medical knowledge',
-    unlocks: {
-      buildings: ['hospital']
-    }
-  },
-
-  [TechnologyType.THE_CORPORATION]: {
-    id: TechnologyType.THE_CORPORATION,
-    name: 'The Corporation',
-    type: TechnologyType.THE_CORPORATION,
-    cost: 30,
-    prerequisites: [TechnologyType.ECONOMICS, TechnologyType.INDUSTRIALIZATION],
-    era: TechnologyEra.INDUSTRIAL,
-    description: 'Large-scale business organization',
-    unlocks: {
-      buildings: ['stock_exchange']
-    }
-  },
-
-  [TechnologyType.BANKING]: {
-    id: TechnologyType.BANKING,
-    name: 'Banking',
-    type: TechnologyType.BANKING,
-    cost: 24,
-    prerequisites: [TechnologyType.TRADE, TechnologyType.THE_REPUBLIC],
-    era: TechnologyEra.RENAISSANCE,
-    description: 'Financial institutions and credit systems',
-    unlocks: {
-      buildings: ['bank']
-    }
-  },
-
-  [TechnologyType.POLYTHEISM]: {
-    id: TechnologyType.POLYTHEISM,
-    name: 'Polytheism',
-    type: TechnologyType.POLYTHEISM,
-    cost: 12,
-    prerequisites: [TechnologyType.CEREMONIAL_BURIAL],
-    era: TechnologyEra.ANCIENT,
-    description: 'Belief in multiple deities',
-    unlocks: {
-      buildings: ['temple']
-    }
-  },
-
-  [TechnologyType.SEAFARING]: {
-    id: TechnologyType.SEAFARING,
-    name: 'Seafaring',
-    type: TechnologyType.SEAFARING,
-    cost: 16,
-    prerequisites: [TechnologyType.MAP_MAKING, TechnologyType.POTTERY],
-    era: TechnologyEra.CLASSICAL,
-    description: 'Ocean navigation and maritime trade',
-    unlocks: {
-      units: ['galley']
+      wonders: ['seti_program']
     }
   },
 
@@ -882,12 +860,92 @@ export const TECHNOLOGY_DEFINITIONS: Record<TechnologyType, Technology> = {
     id: TechnologyType.SPACE_FLIGHT,
     name: 'Space Flight',
     type: TechnologyType.SPACE_FLIGHT,
-    cost: 60,
-    prerequisites: [TechnologyType.ROCKETRY, TechnologyType.COMPUTERS],
-    era: TechnologyEra.INFORMATION,
+    cost: 62,
+    prerequisites: [TechnologyType.COMPUTERS, TechnologyType.ROCKETRY],
+    era: TechnologyEra.MODERN,
     description: 'Travel beyond Earth\'s atmosphere',
     unlocks: {
-      wonders: ['apollo_program']
+      wonders: ['apollo_program'],
+      units: ['ss_structure']
+    }
+  },
+
+  [TechnologyType.PLASTICS]: {
+    id: TechnologyType.PLASTICS,
+    name: 'Plastics',
+    type: TechnologyType.PLASTICS,
+    cost: 64,
+    prerequisites: [TechnologyType.REFINING, TechnologyType.SPACE_FLIGHT],
+    era: TechnologyEra.MODERN,
+    description: 'Synthetic polymer materials',
+    unlocks: {
+      units: ['ss_component']
+    }
+  },
+
+  [TechnologyType.COMMUNISM]: {
+    id: TechnologyType.COMMUNISM,
+    name: 'Communism',
+    type: TechnologyType.COMMUNISM,
+    cost: 44,
+    prerequisites: [TechnologyType.PHILOSOPHY, TechnologyType.INDUSTRIALIZATION],
+    era: TechnologyEra.MODERN,
+    description: 'Collective ownership of property',
+    unlocks: {
+      wonders: ['united_nations']
+    }
+  },
+
+  [TechnologyType.LABOR_UNION]: {
+    id: TechnologyType.LABOR_UNION,
+    name: 'Labor Union',
+    type: TechnologyType.LABOR_UNION,
+    cost: 52,
+    prerequisites: [TechnologyType.MASS_PRODUCTION, TechnologyType.COMMUNISM],
+    era: TechnologyEra.MODERN,
+    description: 'Worker organization and rights',
+    unlocks: {
+      units: ['mech_infantry']
+    }
+  },
+
+  [TechnologyType.RECYCLING]: {
+    id: TechnologyType.RECYCLING,
+    name: 'Recycling',
+    type: TechnologyType.RECYCLING,
+    cost: 54,
+    prerequisites: [TechnologyType.MASS_PRODUCTION, TechnologyType.DEMOCRACY],
+    era: TechnologyEra.MODERN,
+    description: 'Reuse of materials to reduce waste',
+    unlocks: {
+      buildings: ['recycling_center']
+    }
+  },
+
+  [TechnologyType.ROBOTICS]: {
+    id: TechnologyType.ROBOTICS,
+    name: 'Robotics',
+    type: TechnologyType.ROBOTICS,
+    cost: 66,
+    prerequisites: [TechnologyType.PLASTICS, TechnologyType.COMPUTERS],
+    era: TechnologyEra.MODERN,
+    description: 'Automated machinery and artificial intelligence',
+    unlocks: {
+      units: ['artillery', 'ss_module'],
+      buildings: ['mfg_plant']
+    }
+  },
+
+  [TechnologyType.SUPERCONDUCTOR]: {
+    id: TechnologyType.SUPERCONDUCTOR,
+    name: 'Superconductor',
+    type: TechnologyType.SUPERCONDUCTOR,
+    cost: 68,
+    prerequisites: [TechnologyType.PLASTICS, TechnologyType.MASS_PRODUCTION],
+    era: TechnologyEra.MODERN,
+    description: 'Materials with zero electrical resistance',
+    unlocks: {
+      wonders: ['sdi_defense']
     }
   },
 
@@ -895,13 +953,35 @@ export const TECHNOLOGY_DEFINITIONS: Record<TechnologyType, Technology> = {
     id: TechnologyType.GENETIC_ENGINEERING,
     name: 'Genetic Engineering',
     type: TechnologyType.GENETIC_ENGINEERING,
-    cost: 58,
-    prerequisites: [TechnologyType.MEDICINE, TechnologyType.COMPUTERS],
-    era: TechnologyEra.INFORMATION,
+    cost: 56,
+    prerequisites: [TechnologyType.MEDICINE, TechnologyType.THE_CORPORATION],
+    era: TechnologyEra.MODERN,
     description: 'Manipulation of genetic material',
     unlocks: {
       wonders: ['cure_for_cancer']
     }
+  },
+
+  [TechnologyType.FUSION_POWER]: {
+    id: TechnologyType.FUSION_POWER,
+    name: 'Fusion Power',
+    type: TechnologyType.FUSION_POWER,
+    cost: 70,
+    prerequisites: [TechnologyType.NUCLEAR_POWER, TechnologyType.SUPERCONDUCTOR],
+    era: TechnologyEra.MODERN,
+    description: 'Unlimited clean energy from nuclear fusion',
+    unlocks: {}
+  },
+
+  [TechnologyType.FUTURE_TECH]: {
+    id: TechnologyType.FUTURE_TECH,
+    name: 'Future Tech',
+    type: TechnologyType.FUTURE_TECH,
+    cost: 72,
+    prerequisites: [TechnologyType.FUSION_POWER],
+    era: TechnologyEra.MODERN,
+    description: 'Advanced technologies beyond current understanding',
+    unlocks: {}
   }
 };
 

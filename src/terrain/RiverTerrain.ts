@@ -13,7 +13,7 @@ export class RiverTerrain extends TerrainBase {
       movementCost: 1, // Normal movement cost for land units
       passable: true,
       color: '#0ea5e9',
-      possibleResources: [ResourceType.FISH],
+      possibleResources: [], // River has no special resources in Civ1 (Shield is a terrain variant)
       foodYield: 2,
       productionYield: 0,
       tradeYield: 1,

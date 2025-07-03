@@ -12,7 +12,7 @@ export class DesertTerrain extends TerrainBase {
       movementCost: 1,
       passable: true,
       color: '#fbbf24',
-      possibleResources: [ResourceType.GOLD],
+      possibleResources: [ResourceType.OASIS], // Desert has Oasis special resource in Civ1
       foodYield: 0,
       productionYield: 1,
       tradeYield: 0,

@@ -1,4 +1,4 @@
-import { GamePhase, GameState, Player, Position, Unit, City, GovernmentType, GOVERNMENTS, GovernmentEffects, MapScenario, UnitType, TechnologyType, UnitCategory, TerrainType } from '../types/game';
+import { GamePhase, GameState, Player, Position, Unit, City, GovernmentType, GOVERNMENTS, GovernmentEffects, MapScenario, UnitType, TechnologyType, UnitCategory, TerrainType, ImprovementType } from '../types/game';
 import { MapGenerator } from './MapGenerator';
 import { TurnManager } from './TurnManager';
 import { createUnit } from './Units';
@@ -9,6 +9,7 @@ import { TerrainManager } from '../terrain/index';
 import { CIVILIZATION_DEFINITIONS, CivilizationType, getAllCivilizations, getCivilization, Civilization } from './CivilizationDefinitions';
 import { AIPlayer } from './AIPlayer';
 import { SoundEffects } from '../utils/SoundEffects';
+import { ProductionManager } from './ProductionManager';
 
 export class Game {
   private gameState: GameState;
@@ -105,7 +106,7 @@ export class Game {
       // Create settler using the new unit factory
       const settler = createUnit(
         `settler-${player.id}`,
-        UnitType.SETTLER,
+        UnitType.SETTLERS,
         startPosition,
         player.id
       );
@@ -259,16 +260,29 @@ export class Game {
   private buildUnitQueue(): void {
     const currentPlayer = this.gameState.currentPlayer;
     
-    // Get all units for current player that have movement points OR are fortified
-    // Fortified units should be available for activation even though they have 0 movement points
+    // Get all units for current player that have movement points and are not fortified, sleeping, or building roads
+    // Fortified, sleeping, and road-building units are excluded from the queue unless manually awakened
     this.unitQueue = this.gameState.units.filter(unit => 
       unit.playerId === currentPlayer && 
-      (unit.movementPoints > 0 || unit.fortified || unit.fortifying)
+      unit.movementPoints > 0 && 
+      !unit.fortified && 
+      !unit.fortifying && 
+      !unit.sleeping &&
+      !unit.buildingRoad
     );
     
     this.currentUnitIndex = 0;
     
     console.log(`Built unit queue for player ${currentPlayer}:`, this.unitQueue.length, 'units');
+    
+    // If no units are available to move and this is a human player, emit end of turn
+    if (this.unitQueue.length === 0) {
+      const player = this.getCurrentPlayer();
+      if (player && player.isHuman) {
+        console.log('No units available to move for human player - emitting endOfTurn');
+        this.emit('endOfTurn');
+      }
+    }
   }
 
   // Select next unit in queue
@@ -289,13 +303,13 @@ export class Game {
 
       const currentUnit = this.unitQueue[this.currentUnitIndex];
       
-      // If we find a unit that can move (not fortified), select it
-      if (currentUnit.movementPoints > 0 && !currentUnit.fortified && !currentUnit.fortifying) {
+      // If we find a unit that can move (not fortified or building roads), select it
+      if (currentUnit.movementPoints > 0 && !currentUnit.fortified && !currentUnit.fortifying && !currentUnit.buildingRoad) {
         this.setCurrentUnit(currentUnit);
         return;
       }
       
-      // If we've cycled through all units and they're all fortified, 
+      // If we've cycled through all units and they're all busy, 
       // just select the current one (player can activate manually)
       if (this.currentUnitIndex === startIndex) {
         this.setCurrentUnit(currentUnit);
@@ -338,8 +352,8 @@ export class Game {
 
   // Set the current unit and emit events
   private setCurrentUnit(unit: Unit): void {
-    // Only start blinking if unit is not fortified or fortifying
-    if (!unit.fortified && !unit.fortifying) {
+    // Only start blinking if unit is not fortified, fortifying, or building roads
+    if (!unit.fortified && !unit.fortifying && !unit.buildingRoad) {
       this.startUnitBlinking();
     }
     this.emit('unitSelected', {
@@ -396,9 +410,15 @@ export class Game {
       this.currentUnitIndex = Math.max(0, this.currentUnitIndex - 1);
     }
 
-    // If no units left in queue, clear selection
+    // If no units left in queue, clear selection and emit end of turn for human players
     if (this.unitQueue.length === 0) {
       this.clearCurrentUnit();
+      
+      const player = this.getCurrentPlayer();
+      if (player && player.isHuman) {
+        console.log('All units exhausted movement - emitting endOfTurn');
+        this.emit('endOfTurn');
+      }
     } else {
       // Select the unit that's now at the current position (or wrap to start)
       this.selectCurrentUnit();
@@ -442,11 +462,17 @@ export class Game {
     // Move unit
     unit.position = normalizedPosition;
     
-    // Break fortification when unit moves
+    // Break fortification and road building when unit moves
     if (unit.fortified || unit.fortifying) {
       unit.fortified = false;
       unit.fortifying = false;
       unit.fortificationTurns = 0;
+    }
+    
+    if (unit.buildingRoad) {
+      unit.buildingRoad = false;
+      unit.roadBuildingTurns = 0;
+      console.log('buildRoad: Road building cancelled due to unit movement');
     }
     
     // If movement cost exceeds remaining points, drain all remaining movement
@@ -465,7 +491,7 @@ export class Game {
     return true;
   }
 
-  // Calculate movement cost including terrain
+  // Calculate movement cost including terrain and roads
   private calculateMovementCost(fromPosition: Position, toPosition: Position): number {
     // For now, this is a simplified implementation for adjacent moves only
     const distance = this.calculateWrappedDistance(fromPosition, toPosition);
@@ -474,11 +500,21 @@ export class Game {
       return distance;
     }
 
-    // Get terrain movement cost for the destination tile
-    const tile = this.gameState.worldMap[toPosition.y]?.[toPosition.x];
-    if (!tile) return 999; // Invalid tile
+    // Get tiles at both positions
+    const fromTile = this.gameState.worldMap[fromPosition.y]?.[fromPosition.x];
+    const toTile = this.gameState.worldMap[toPosition.y]?.[toPosition.x];
+    if (!fromTile || !toTile) return 999; // Invalid tile
 
-    return TerrainManager.getMovementCost(tile.terrain);
+    // Check if both tiles have roads - if so, movement cost is 1/3 regardless of terrain
+    const fromHasRoad = fromTile.improvements?.some(imp => imp.type === ImprovementType.ROAD);
+    const toHasRoad = toTile.improvements?.some(imp => imp.type === ImprovementType.ROAD);
+    
+    if (fromHasRoad && toHasRoad) {
+      return 1/3; // Road movement bonus
+    }
+
+    // Otherwise use normal terrain movement cost
+    return TerrainManager.getMovementCost(toTile.terrain);
   }
 
   // Check if unit can move to a specific terrain type
@@ -663,7 +699,7 @@ export class Game {
   // Found a city
   public foundCity(unitId: string, cityName?: string): boolean {
     const unit = this.gameState.units.find((u: Unit) => u.id === unitId);
-    if (!unit || unit.type !== UnitType.SETTLER) return false;
+    if (!unit || unit.type !== UnitType.SETTLERS) return false;
 
     // Check if position allows city founding (terrain validation)
     if (!this.isValidPosition(unit.position)) {
@@ -710,6 +746,16 @@ export class Game {
 
     this.gameState.cities.push(city);
     
+    // Set initial production to the best defensive unit
+    const bestDefensiveUnit = this.getBestDefensiveUnit(unit.playerId);
+    if (bestDefensiveUnit) {
+      city.production = {
+        type: 'unit',
+        item: bestDefensiveUnit.type as any,
+        turnsRemaining: bestDefensiveUnit.turns
+      };
+    }
+    
     // Remove the settler unit from game state
     this.gameState.units = this.gameState.units.filter((u: Unit) => u.id !== unitId);
     
@@ -753,32 +799,42 @@ export class Game {
     const city = this.gameState.cities.find(c => c.id === cityId);
     if (!city) return false;
 
-    // Reset production points when changing production
-    city.production_points = 0;
-    
-    // Determine production type and set up production item
-    let productionItem: any;
-    const unitTypes = ['Settler', 'Warrior', 'Phalanx', 'Archer', 'Legion', 'Scout'];
-    const buildingTypes = ['Granary', 'Barracks', 'Library', 'Temple', 'Walls'];
-    
-    if (unitTypes.includes(production)) {
-      productionItem = {
-        type: 'unit',
-        item: production.toLowerCase(),
-        turnsRemaining: this.getProductionTime(production)
-      };
-    } else if (buildingTypes.includes(production)) {
-      productionItem = {
-        type: 'building',
-        item: production.toLowerCase(),
-        turnsRemaining: this.getProductionTime(production)
-      };
-    } else {
-      // Unknown production type
+    // Get the current player to check technologies
+    const player = this.gameState.players.find(p => p.id === city.playerId);
+    if (!player) return false;
+
+    // Validate the production choice
+    const existingBuildings = city.buildings.map(b => b.type as any);
+    const availableOptions = ProductionManager.getAvailableProduction(
+      player.technologies,
+      existingBuildings,
+      2,
+      city.production_points
+    );
+
+    // Find the selected option
+    const selectedOption = availableOptions.find(opt => 
+      opt.name === production || opt.id === production.toLowerCase()
+    );
+
+    if (!selectedOption) {
+      console.warn(`Production option '${production}' is not available for this city`);
       return false;
     }
 
-    city.production = productionItem;
+    // In Civilization 1, shields are typically transferred when switching production
+    // Only reset shields in specific cases (like switching from units to buildings)
+    // For now, keep the shields to allow for the "shield transfer" mechanic
+    // city.production_points = 0; // Comment out - keep accumulated shields
+    
+    // Set up production item with proper cost calculation
+    const productionItem = {
+      type: selectedOption.type,
+      item: selectedOption.id,
+      turnsRemaining: selectedOption.turns
+    };
+
+    city.production = productionItem as any;
     this.emit('cityProductionChanged', { city, production });
     return true;
   }
@@ -808,7 +864,11 @@ export class Game {
 
     if (!attacker || !defender) return null;
 
-    const result = this.combatSystem.executeAttack(attacker, defender);
+    // Check if defender is on a fortress tile
+    const defenderTile = this.gameState.worldMap[defender.position.y]?.[defender.position.x];
+    const defenderHasFortress = defenderTile?.improvements?.some(imp => imp.type === ImprovementType.FORTRESS) || false;
+
+    const result = this.combatSystem.executeAttack(attacker, defender, defenderHasFortress);
     
     if (result) {
       // Remove destroyed units
@@ -1146,9 +1206,6 @@ export class Game {
     // Check if already researched
     if (player.technologies.includes(technologyType)) return false;
 
-    // Check if prerequisites are met
-    if (!canResearch(technologyType, player.technologies)) return false;
-
     // Check if this is the current research and player has enough progress
     const cost = getResearchCost(technologyType);
     const progress = player.currentResearch === technologyType ? (player.currentResearchProgress || 0) : 0;
@@ -1253,5 +1310,497 @@ export class Game {
   public getPlayerLeader(playerId: string): string {
     const civilization = this.getPlayerCivilization(playerId);
     return civilization ? civilization.leader : 'Unknown Leader';
+  }
+
+  // Get the best defensive unit available to a player
+  private getBestDefensiveUnit(playerId: string): { type: string; turns: number } | null {
+    const player = this.gameState.players.find(p => p.id === playerId);
+    if (!player) return null;
+
+    // Defensive units in order of preference (best to worst)
+    const defensiveUnits = [
+      UnitType.RIFLEMEN,    // Industrial era
+      UnitType.MUSKETEERS,  // Gunpowder era  
+      UnitType.PHALANX,     // Classical era
+      UnitType.MILITIA      // Ancient era (starting unit)
+    ];
+
+    // Find the best unit the player can build
+    for (const unitType of defensiveUnits) {
+      if (ProductionManager.canProduce('unit', unitType, player.technologies, [])) {
+        // Calculate production turns (simplified - using base production of 1)
+        const cost = ProductionManager.getProductionCost('unit', unitType);
+        const turns = Math.ceil(cost / 1); // Base production capacity
+        
+        return {
+          type: unitType,
+          turns: turns
+        };
+      }
+    }
+
+    return null;
+  }
+
+  // Terrain improvement methods
+  public buildRoad(unitId: string): boolean {
+    const unit = this.gameState.units.find((u: Unit) => u.id === unitId);
+    if (!unit || unit.type !== UnitType.SETTLERS) {
+      console.log('buildRoad: Only Settlers can build roads');
+      return false;
+    }
+
+    if (unit.playerId !== this.gameState.currentPlayer) {
+      console.log('buildRoad: Unit does not belong to current player');
+      return false;
+    }
+
+    const tile = this.gameState.worldMap[unit.position.y]?.[unit.position.x];
+    if (!tile) {
+      console.log('buildRoad: Invalid tile position');
+      return false;
+    }
+
+    // Check if roads can be built over rivers - requires Bridge Building technology
+    if (tile.terrain === TerrainType.RIVER) {
+      const player = this.gameState.players.find(p => p.id === unit.playerId);
+      if (!player?.technologies.includes(TechnologyType.BRIDGE_BUILDING)) {
+        console.log('buildRoad: Bridge Building technology required to build roads over rivers');
+        return false;
+      }
+    }
+
+    // Check if road already exists
+    const hasRoad = tile.improvements?.some(imp => imp.type === ImprovementType.ROAD);
+    if (hasRoad) {
+      console.log('buildRoad: Road already exists on this tile');
+      return false;
+    }
+
+    // Determine how many turns are required for this terrain
+    const requiredTurns = this.getRoadBuildingTurns(tile.terrain);
+    
+    // Initialize road building state
+    unit.roadBuildingTurns = unit.roadBuildingTurns || 0;
+
+    if (requiredTurns === 1) {
+      // Instant road building (1 turn)
+      if (!tile.improvements) {
+        tile.improvements = [];
+      }
+      
+      tile.improvements.push({
+        type: ImprovementType.ROAD,
+        completedTurn: this.gameState.turn
+      });
+
+      // Clear building state
+      unit.buildingRoad = false;
+      unit.roadBuildingTurns = 0;
+      unit.movementPoints = 0; // End turn when building
+
+      console.log(`buildRoad: Road built instantly at (${unit.position.x}, ${unit.position.y})`);
+      this.emit('terrainImproved', { 
+        position: unit.position, 
+        improvement: 'road',
+        playerId: unit.playerId 
+      });
+
+      // Remove unit from queue since turn ends
+      this.removeUnitFromQueue(unitId);
+    } else {
+      // 2-turn road building
+      if (unit.roadBuildingTurns === 0) {
+        // First turn - start building road
+        unit.buildingRoad = true;
+        unit.roadBuildingTurns = 1;
+        unit.movementPoints = 0; // End turn when starting road building
+
+        console.log(`buildRoad: Started building road at (${unit.position.x}, ${unit.position.y}) - turn 1 of 2`);
+        this.emit('roadBuildingStarted', { 
+          unit,
+          position: unit.position,
+          turnsRemaining: 1
+        });
+
+        // Remove unit from queue since turn ends
+        this.removeUnitFromQueue(unitId);
+      } else if (unit.roadBuildingTurns === 1 && unit.buildingRoad) {
+        // Second turn - complete road
+        if (!tile.improvements) {
+          tile.improvements = [];
+        }
+        
+        tile.improvements.push({
+          type: ImprovementType.ROAD,
+          completedTurn: this.gameState.turn
+        });
+
+        // Clear building state
+        unit.buildingRoad = false;
+        unit.roadBuildingTurns = 0;
+        unit.movementPoints = 0; // End turn when completing
+
+        console.log(`buildRoad: Road completed at (${unit.position.x}, ${unit.position.y})`);
+        this.emit('terrainImproved', { 
+          position: unit.position, 
+          improvement: 'road',
+          playerId: unit.playerId 
+        });
+
+        // Remove unit from queue since turn ends
+        this.removeUnitFromQueue(unitId);
+      }
+    }
+
+    return true;
+  }
+
+  public buildIrrigation(unitId: string): boolean {
+    const unit = this.gameState.units.find((u: Unit) => u.id === unitId);
+    if (!unit || unit.type !== UnitType.SETTLERS) {
+      console.log('buildIrrigation: Only Settlers can build irrigation');
+      return false;
+    }
+
+    if (unit.playerId !== this.gameState.currentPlayer) {
+      console.log('buildIrrigation: Unit does not belong to current player');
+      return false;
+    }
+
+    const tile = this.gameState.worldMap[unit.position.y]?.[unit.position.x];
+    if (!tile) {
+      console.log('buildIrrigation: Invalid tile position');
+      return false;
+    }
+
+    // Check if terrain can be irrigated
+    const irrigatableTerrains = [
+      TerrainType.DESERT,
+      TerrainType.GRASSLAND,
+      TerrainType.HILLS,
+      TerrainType.PLAINS,
+      TerrainType.RIVER
+    ];
+
+    if (!irrigatableTerrains.includes(tile.terrain)) {
+      console.log('buildIrrigation: This terrain cannot be irrigated');
+      return false;
+    }
+
+    // Check if irrigation already exists
+    const hasIrrigation = tile.improvements?.some(imp => imp.type === ImprovementType.IRRIGATION);
+    if (hasIrrigation) {
+      console.log('buildIrrigation: Irrigation already exists on this tile');
+      return false;
+    }
+
+    // Check water access requirement
+    if (!this.hasWaterAccess(unit.position.x, unit.position.y)) {
+      console.log('buildIrrigation: No water access - must be adjacent to river, ocean, or irrigated tile');
+      return false;
+    }
+
+    // Add irrigation improvement
+    if (!tile.improvements) {
+      tile.improvements = [];
+    }
+    
+    tile.improvements.push({
+      type: ImprovementType.IRRIGATION,
+      completedTurn: this.gameState.turn
+    });
+
+    console.log(`buildIrrigation: Irrigation built at (${unit.position.x}, ${unit.position.y})`);
+    this.emit('terrainImproved', { 
+      position: unit.position, 
+      improvement: 'irrigation',
+      playerId: unit.playerId 
+    });
+
+    return true;
+  }
+
+  public buildMine(unitId: string): boolean {
+    const unit = this.gameState.units.find((u: Unit) => u.id === unitId);
+    if (!unit || unit.type !== UnitType.SETTLERS) {
+      console.log('buildMine: Only Settlers can build mines');
+      return false;
+    }
+
+    if (unit.playerId !== this.gameState.currentPlayer) {
+      console.log('buildMine: Unit does not belong to current player');
+      return false;
+    }
+
+    const tile = this.gameState.worldMap[unit.position.y]?.[unit.position.x];
+    if (!tile) {
+      console.log('buildMine: Invalid tile position');
+      return false;
+    }
+
+    // Check if terrain can be mined
+    const mineableTerrains = [
+      TerrainType.DESERT,   // +1 production
+      TerrainType.HILLS,    // +3 production  
+      TerrainType.MOUNTAINS // +1 production
+    ];
+
+    if (!mineableTerrains.includes(tile.terrain)) {
+      console.log('buildMine: This terrain cannot be mined');
+      return false;
+    }
+
+    // Check if mine already exists
+    const hasMine = tile.improvements?.some(imp => imp.type === ImprovementType.MINE);
+    if (hasMine) {
+      console.log('buildMine: Mine already exists on this tile');
+      return false;
+    }
+
+    // Add mine improvement
+    if (!tile.improvements) {
+      tile.improvements = [];
+    }
+    
+    tile.improvements.push({
+      type: ImprovementType.MINE,
+      completedTurn: this.gameState.turn
+    });
+
+    console.log(`buildMine: Mine built at (${unit.position.x}, ${unit.position.y})`);
+    this.emit('terrainImproved', { 
+      position: unit.position, 
+      improvement: 'mine',
+      playerId: unit.playerId 
+    });
+
+    return true;
+  }
+
+  // Helper method to check water access for irrigation
+  private hasWaterAccess(x: number, y: number): boolean {
+    const mapWidth = this.gameState.worldMap[0].length;
+    const mapHeight = this.gameState.worldMap.length;
+
+    // Check adjacent tiles (not diagonal)
+    const directions = [
+      { dx: 0, dy: -1 }, // North
+      { dx: 1, dy: 0 },  // East
+      { dx: 0, dy: 1 },  // South
+      { dx: -1, dy: 0 }  // West
+    ];
+
+    for (const dir of directions) {
+      let checkX = x + dir.dx;
+      let checkY = y + dir.dy;
+
+      // Handle horizontal wrapping
+      if (checkX < 0) checkX = mapWidth - 1;
+      if (checkX >= mapWidth) checkX = 0;
+
+      // Skip if out of vertical bounds
+      if (checkY < 0 || checkY >= mapHeight) continue;
+
+      const adjacentTile = this.gameState.worldMap[checkY]?.[checkX];
+      if (!adjacentTile) continue;
+
+      // Water access sources:
+      // 1. River or Ocean terrain
+      if (adjacentTile.terrain === TerrainType.RIVER || adjacentTile.terrain === TerrainType.OCEAN) {
+        return true;
+      }
+
+      // 2. Another irrigated tile
+      const hasIrrigation = adjacentTile.improvements?.some(imp => imp.type === ImprovementType.IRRIGATION);
+      if (hasIrrigation) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  // Get terrain yields with improvements
+  public getTerrainYieldsWithImprovements(x: number, y: number): { food: number; production: number; trade: number } {
+    const tile = this.gameState.worldMap[y]?.[x];
+    if (!tile) {
+      return { food: 0, production: 0, trade: 0 };
+    }
+
+    // Get base yields
+    const baseYields = TerrainManager.getTerrainYields(tile.terrain);
+    let yields = { ...baseYields };
+
+    // Apply improvement bonuses
+    if (tile.improvements) {
+      for (const improvement of tile.improvements) {
+        switch (improvement.type) {
+          case ImprovementType.IRRIGATION:
+            yields.food += 1;
+            break;
+
+          case ImprovementType.MINE:
+            if (tile.terrain === TerrainType.DESERT) {
+              yields.production += 1;
+            } else if (tile.terrain === TerrainType.HILLS) {
+              yields.production += 3;
+            } else if (tile.terrain === TerrainType.MOUNTAINS) {
+              yields.production += 1;
+            }
+            break;
+
+          case ImprovementType.ROAD:
+            // Roads increase trade for specific terrains
+            if (tile.terrain === TerrainType.GRASSLAND || 
+                tile.terrain === TerrainType.PLAINS ||
+                tile.terrain === TerrainType.DESERT) {
+              yields.trade += 1;
+            }
+            break;
+        }
+      }
+    }
+
+    return yields;
+  }
+
+  // Get the number of turns required to build a road on a terrain type
+  private getRoadBuildingTurns(terrainType: TerrainType): number {
+    // 1 turn: grassland, desert, plains
+    // 2 turns: forest, jungle, hills, mountains, rivers
+    switch (terrainType) {
+      case TerrainType.GRASSLAND:
+      case TerrainType.DESERT:
+      case TerrainType.PLAINS:
+        return 1;
+      case TerrainType.FOREST:
+      case TerrainType.JUNGLE:
+      case TerrainType.HILLS:
+      case TerrainType.MOUNTAINS:
+      case TerrainType.RIVER:
+        return 2;
+      default:
+        return 1; // Default to 1 turn for unknown terrain
+    }
+  }
+
+  // Cancel road building for a unit
+  public cancelRoadBuilding(unitId: string): boolean {
+    const unit = this.gameState.units.find(u => u.id === unitId);
+    if (!unit) return false;
+
+    if (unit.buildingRoad) {
+      unit.buildingRoad = false;
+      unit.roadBuildingTurns = 0;
+      console.log('cancelRoadBuilding: Road building cancelled');
+      this.emit('roadBuildingCancelled', unit);
+    }
+
+    return true;
+  }
+
+  // Cancel road building and activate the unit
+  public cancelRoadBuildingAndActivateUnit(unitId: string): boolean {
+    const unit = this.gameState.units.find(u => u.id === unitId);
+    if (!unit) return false;
+
+    // Can only activate units belonging to current player
+    if (unit.playerId !== this.gameState.currentPlayer) return false;
+
+    // Cancel road building
+    this.cancelRoadBuilding(unitId);
+
+    // Restore movement points if it doesn't have any
+    if (unit.movementPoints <= 0) {
+      const stats = getUnitStats(unit.type);
+      unit.movementPoints = stats.movement;
+    }
+
+    // Add unit to the move queue if it's not already there
+    if (!this.unitQueue.find(u => u.id === unitId)) {
+      this.unitQueue.push(unit);
+    }
+
+    // Make this unit the current unit
+    const unitIndex = this.unitQueue.findIndex(u => u.id === unitId);
+    if (unitIndex >= 0) {
+      this.currentUnitIndex = unitIndex;
+      this.setCurrentUnit(unit);
+    }
+
+    this.emit('unitActivated', unit);
+    return true;
+  }
+
+  public buildFortress(unitId: string): boolean {
+    const unit = this.gameState.units.find((u: Unit) => u.id === unitId);
+    if (!unit || unit.type !== UnitType.SETTLERS) {
+      console.log('buildFortress: Only Settlers can build fortresses');
+      return false;
+    }
+
+    if (unit.playerId !== this.gameState.currentPlayer) {
+      console.log('buildFortress: Unit does not belong to current player');
+      return false;
+    }
+
+    // Check if player has Construction technology
+    const player = this.gameState.players.find(p => p.id === unit.playerId);
+    if (!player?.technologies.includes(TechnologyType.CONSTRUCTION)) {
+      console.log('buildFortress: Construction technology required to build fortress');
+      return false;
+    }
+
+    const tile = this.gameState.worldMap[unit.position.y]?.[unit.position.x];
+    if (!tile) {
+      console.log('buildFortress: Invalid tile position');
+      return false;
+    }
+
+    // Check if position is in a city square - fortresses cannot be built in cities
+    const cityAtPosition = this.gameState.cities.find(city => 
+      city.position.x === unit.position.x && city.position.y === unit.position.y
+    );
+    if (cityAtPosition) {
+      console.log('buildFortress: Fortress cannot be built in a city square');
+      return false;
+    }
+
+    // Check if fortress already exists
+    const hasFortress = tile.improvements?.some(imp => imp.type === ImprovementType.FORTRESS);
+    if (hasFortress) {
+      console.log('buildFortress: Fortress already exists on this tile');
+      return false;
+    }
+
+    // Check if terrain allows fortress building (cannot build on ocean)
+    if (tile.terrain === TerrainType.OCEAN) {
+      console.log('buildFortress: Fortress cannot be built on ocean');
+      return false;
+    }
+
+    // Add fortress improvement
+    if (!tile.improvements) {
+      tile.improvements = [];
+    }
+    
+    tile.improvements.push({
+      type: ImprovementType.FORTRESS,
+      completedTurn: this.gameState.turn
+    });
+
+    // End unit's turn
+    unit.movementPoints = 0;
+    this.removeUnitFromQueue(unitId);
+
+    console.log(`buildFortress: Fortress built at (${unit.position.x}, ${unit.position.y})`);
+    this.emit('terrainImproved', { 
+      position: unit.position, 
+      improvement: 'fortress',
+      playerId: unit.playerId 
+    });
+
+    return true;
   }
 }

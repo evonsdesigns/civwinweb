@@ -1,5 +1,6 @@
 import { TechnologyType } from '../game/TechnologyDefinitions.js';
 import { getTechnology } from '../game/TechnologyDefinitions.js';
+import { TechnologySprites } from './TechnologySprites.js';
 import type { Player } from '../types/game.js';
 import type { Game } from '../game/Game.js';
 
@@ -26,6 +27,11 @@ export class TechnologyDiscoveryModal {
     this.step1 = document.getElementById('discovery-step-1');
     this.step2 = document.getElementById('discovery-step-2');
 
+    console.log('TechnologyDiscoveryModal: Elements found:');
+    console.log('- modal:', this.modal);
+    console.log('- step1:', this.step1);
+    console.log('- step2:', this.step2);
+
     if (!this.modal || !this.step1 || !this.step2) {
       console.error('Technology discovery modal elements not found');
       return;
@@ -35,8 +41,14 @@ export class TechnologyDiscoveryModal {
     const continueBtn = document.getElementById('discovery-continue');
     const closeBtn = document.getElementById('discovery-close');
 
-    continueBtn?.addEventListener('click', () => this.nextStep());
-    closeBtn?.addEventListener('click', () => this.close());
+    continueBtn?.addEventListener('click', () => {
+      console.log('TechnologyDiscoveryModal: Continue button clicked');
+      this.nextStep();
+    });
+    closeBtn?.addEventListener('click', () => {
+      console.log('TechnologyDiscoveryModal: Close button clicked');
+      this.close();
+    });
 
     // Prevent closing by clicking outside during discovery
     this.modal.addEventListener('click', (event) => {
@@ -61,11 +73,14 @@ export class TechnologyDiscoveryModal {
   /**
    * Show the discovery modal for a specific technology
    */
-  public show(technology: TechnologyType, onComplete?: () => void): void {
+  public async show(technology: TechnologyType, onComplete?: () => void): Promise<void> {
     console.log('TechnologyDiscoveryModal: Showing discovery for:', technology);
     
     if (!this.modal || !this.step1 || !this.step2) {
       console.error('TechnologyDiscoveryModal: Modal elements not found');
+      console.log('Modal:', this.modal);
+      console.log('Step1:', this.step1);
+      console.log('Step2:', this.step2);
       return;
     }
 
@@ -73,29 +88,48 @@ export class TechnologyDiscoveryModal {
     this.currentStep = 1;
 
     // Populate step 1 content
-    this.populateStep1(technology);
+    await this.populateStep1(technology);
     
     // Populate step 2 content
     this.populateStep2(technology);
 
     // Show step 1, hide step 2
+    console.log('TechnologyDiscoveryModal: Setting step 1 to display: block');
     this.step1.style.display = 'block';
+    console.log('TechnologyDiscoveryModal: Setting step 2 to display: none');
     this.step2.style.display = 'none';
 
     // Show modal
+    console.log('TechnologyDiscoveryModal: Setting modal to display: flex');
     this.modal.style.display = 'flex';
     this.modal.classList.add('active');
+    
+    console.log('TechnologyDiscoveryModal: Modal should now be visible with step 1');
   }
 
   /**
    * Populate step 1 content (basic announcement)
    */
-  private populateStep1(technologyType: TechnologyType): void {
+  private async populateStep1(technologyType: TechnologyType): Promise<void> {
     const technology = getTechnology(technologyType);
     
     const nameElement = document.getElementById('discovered-tech-name');
     if (nameElement) {
       nameElement.textContent = technology.name;
+    }
+
+    // Load and display technology sprite
+    try {
+      const sprite = await TechnologySprites.getTechnologySprite(technologyType, 96);
+      const iconElement = document.querySelector('.tech-icon') as HTMLElement;
+      if (iconElement && sprite) {
+        // Clear existing content and append the canvas sprite
+        iconElement.innerHTML = '';
+        iconElement.appendChild(sprite);
+      }
+    } catch (error) {
+      console.warn(`Failed to load sprite for ${technologyType}:`, error);
+      // Fallback to default icon
     }
   }
 
@@ -184,10 +218,12 @@ export class TechnologyDiscoveryModal {
    * Move to the next step
    */
   private nextStep(): void {
+    console.log('TechnologyDiscoveryModal: nextStep() called, currentStep:', this.currentStep);
     if (!this.step1 || !this.step2) return;
 
     if (this.currentStep === 1) {
       // Move from step 1 to step 2
+      console.log('TechnologyDiscoveryModal: Hiding step 1, showing step 2');
       this.step1.style.display = 'none';
       this.step2.style.display = 'block';
       this.currentStep = 2;
