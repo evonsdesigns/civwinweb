@@ -47,6 +47,10 @@ export class OceanTerrain extends TerrainBase {
       left: '/src/assets/civwintiles/ocean_W.png',
       right: '/src/assets/civwintiles/ocean_E.png',
       sw: '/src/assets/civwintiles/oceans/ocean_SW.png',
+      east_nc: '/src/assets/civwintiles/oceans/ocean_E_NC.png',
+      east_sc: '/src/assets/civwintiles/oceans/ocean_E_SC.png',
+      west_sc: '/src/assets/civwintiles/oceans/ocean_W_SC.png',
+      ncsc: '/src/assets/civwintiles/oceans/ocean_NCSC.png',
       landlocked: '/src/assets/civwintiles/ocean_landlocked.png'
     };
 
@@ -218,18 +222,38 @@ export class OceanTerrain extends TerrainBase {
       ctx.drawImage(OceanTerrain.oceanBorderImages.sw, 0, 0, tileSize, tileSize);
     } else {
       if (hasLandSouth) {
-        this.drawCoastlineBorder(ctx, 'south', tileSize, borderWidth, landColor, shoreColor);
+        if (hasLandSW && hasLandSE && OceanTerrain.oceanBorderImages.ncsc?.complete) {
+          const img = OceanTerrain.oceanBorderImages.ncsc;
+          ctx.drawImage(img, 0, img.height / 2, img.width, img.height / 2, 0, tileSize / 2, tileSize, tileSize / 2);
+        } else {
+          this.drawCoastlineBorder(ctx, 'south', tileSize, borderWidth, landColor, shoreColor);
+        }
       }
       if (hasLandWest) {
-        this.drawCoastlineBorder(ctx, 'west', tileSize, borderWidth, landColor, shoreColor);
+        if (hasLandSW && !hasLandSouth && OceanTerrain.oceanBorderImages.west_sc?.complete) {
+          ctx.drawImage(OceanTerrain.oceanBorderImages.west_sc, 0, 0, tileSize, tileSize);
+        } else {
+          this.drawCoastlineBorder(ctx, 'west', tileSize, borderWidth, landColor, shoreColor);
+        }
       }
     }
 
     if (hasLandNorth) {
-      this.drawCoastlineBorder(ctx, 'north', tileSize, borderWidth, landColor, shoreColor);
+      if (hasLandNW && hasLandNE && OceanTerrain.oceanBorderImages.ncsc?.complete) {
+        const img = OceanTerrain.oceanBorderImages.ncsc;
+        ctx.drawImage(img, 0, 0, img.width, img.height / 2, 0, 0, tileSize, tileSize / 2);
+      } else {
+        this.drawCoastlineBorder(ctx, 'north', tileSize, borderWidth, landColor, shoreColor);
+      }
     }
     if (hasLandEast) {
-      this.drawCoastlineBorder(ctx, 'east', tileSize, borderWidth, landColor, shoreColor);
+      if (hasLandNE && !hasLandNorth && OceanTerrain.oceanBorderImages.east_nc?.complete) {
+        ctx.drawImage(OceanTerrain.oceanBorderImages.east_nc, 0, 0, tileSize, tileSize);
+      } else if (hasLandSE && !hasLandSouth && OceanTerrain.oceanBorderImages.east_sc?.complete) {
+        ctx.drawImage(OceanTerrain.oceanBorderImages.east_sc, 0, 0, tileSize, tileSize);
+      } else {
+        this.drawCoastlineBorder(ctx, 'east', tileSize, borderWidth, landColor, shoreColor);
+      }
     }
 
     // Draw corner connections for smooth coastlines

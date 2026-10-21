@@ -160,8 +160,11 @@ export class Civ1MapGenerator {
     while (iterations > 0) {
       const randX = this.randomInt(width);
       const randY = this.randomInt(height);
-      // Only erode tiles that are higher than 2 to preserve basic landmass
-      if (worldMap[randY][randX] > 2) {
+      // Erode tiles but leave hills and mountains more intact
+      if (worldMap[randY][randX] > 3) {
+        worldMap[randY][randX] = Math.max(2, worldMap[randY][randX] - 1);
+      } else if (worldMap[randY][randX] > 2 && Math.random() < 0.5) {
+        // Less likely to erode mountains down to hills
         worldMap[randY][randX] = Math.max(1, worldMap[randY][randX] - 1);
       }
       iterations--;
@@ -233,6 +236,8 @@ export class Civ1MapGenerator {
           terrain = TerrainType.OCEAN;
         } else if (heightMap[y][x] === 1) {
           terrain = TerrainType.GRASSLAND;
+        } else if (heightMap[y][x] >= 3) {
+          terrain = TerrainType.MOUNTAINS;
         } else if (heightMap[y][x] >= 2) {
           terrain = TerrainType.HILLS;
         } else {

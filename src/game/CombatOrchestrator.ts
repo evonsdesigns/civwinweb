@@ -232,7 +232,7 @@ export class CombatOrchestrator {
 
               const oldOwner = cityAfterCombat.playerId;
               cityAfterCombat.playerId = attacker.playerId;
-
+              this.diplomacyManager.recordCityCapture(attacker.playerId, oldOwner);
               // Add captured city name to new owner's used names list
               const newOwnerPlayer = this.gameState.players.find(p => p.id === attacker.playerId);
               if (newOwnerPlayer && !newOwnerPlayer.usedCityNames.includes(cityAfterCombat.name)) {

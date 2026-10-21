@@ -1,4 +1,4 @@
-import { City, GameState, Player, Position, Unit, UnitType, ProductionQueueItem } from '../types/game';
+import { City, GameState, Player, Position, Unit, UnitType, ProductionQueueItem, BuildingType } from '../types/game';
 import { getCivilization } from './CivilizationDefinitions';
 import { CityGrowthSystem } from './CityGrowthSystem';
 import { ProductionManager } from './ProductionManager';
@@ -118,13 +118,15 @@ export class CityFoundingSystem {
       console.log('foundCity: Marked city name as used. Player used names now:', player.usedCityNames);
     }
 
+    const isFirstCity = this.gameState.cities.filter(c => c.playerId === unit.playerId).length === 0;
+
     const city: City = {
       id: `city-${Date.now()}`,
       name: finalCityName,
       position: unit.position,
       population: 1,
       playerId: unit.playerId,
-      buildings: [],
+      buildings: isFirstCity ? [{ type: BuildingType.PALACE, completedTurn: this.gameState.turn }] : [],
       wonders: [],
       production: null,
       food: 0,

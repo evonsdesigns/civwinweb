@@ -1,6 +1,7 @@
 import { Player, GovernmentType } from '../types/game';
 import { getCivilization, CivilizationType } from './CivilizationDefinitions';
 import { TechnologyType } from './TechnologyDefinitions';
+import { BARBARIAN_PLAYER_ID } from './BarbarianSystem';
 
 export enum DiplomaticStatus {
   UNCONTACTED = 'uncontacted',
@@ -19,6 +20,10 @@ export interface DiplomaticRelationship {
   peaceTreatyTurn?: number;       // Turn when peace was signed
   treatsBreached?: number;        // How many times peace was broken
   lastContactTurn?: number;       // Last time diplomacy occurred
+  warDeclaredTurn?: number;       // Turn the current/most recent AI-vs-AI war began
+  ceasefireTurn?: number;         // Turn the last AI-vs-AI war ended
+  /** Cities each side has captured from the other, keyed by the capturing player's id. */
+  citiesCapturedBy?: Record<string, number>;
 }
 
 export enum AIMood {
@@ -104,8 +109,11 @@ export class DiplomacyManager {
   }
 
   public updateStatus(player1Id: string, player2Id: string, status: DiplomaticStatus): void {
+    if (player1Id === BARBARIAN_PLAYER_ID || player2Id === BARBARIAN_PLAYER_ID) return;
     const rel = this.getRelationship(player1Id, player2Id);
+    const wasAtWar = rel.status === DiplomaticStatus.WAR;
     rel.status = status;
+    if (status === DiplomaticStatus.WAR && !wasAtWar) this.resetCaptures(player1Id, player2Id);
     if (status === DiplomaticStatus.PEACE) {
       rel.peaceTreaty = true;
     } else if (status === DiplomaticStatus.WAR) {
@@ -118,10 +126,30 @@ export class DiplomacyManager {
   }
 
   public isAtWar(p1: string, p2: string): boolean {
+    if (p1 === BARBARIAN_PLAYER_ID || p2 === BARBARIAN_PLAYER_ID) return true;
     return this.getRelationship(p1, p2).status === DiplomaticStatus.WAR;
   }
 
+  /** Remember that `captorId` took a city from `loserId` (used to weigh peace offers). */
+  public recordCityCapture(captorId: string, loserId: string): void {
+    if (captorId === BARBARIAN_PLAYER_ID || loserId === BARBARIAN_PLAYER_ID) return;
+    const rel = this.getRelationship(captorId, loserId);
+    rel.citiesCapturedBy ??= {};
+    rel.citiesCapturedBy[captorId] = (rel.citiesCapturedBy[captorId] ?? 0) + 1;
+  }
+
+  /** How many cities `captorId` has captured from `loserId`. */
+  public getCitiesCaptured(captorId: string, loserId: string): number {
+    return this.getRelationship(captorId, loserId).citiesCapturedBy?.[captorId] ?? 0;
+  }
+
+  /** Forget captures once a new war starts so old wars don't colour new peace talks. */
+  private resetCaptures(p1: string, p2: string): void {
+    this.getRelationship(p1, p2).citiesCapturedBy = {};
+  }
+
   public isAtPeace(p1: string, p2: string): boolean {
+    if (p1 === BARBARIAN_PLAYER_ID || p2 === BARBARIAN_PLAYER_ID) return false;
     const s = this.getRelationship(p1, p2).status;
     return s === DiplomaticStatus.PEACE || s === DiplomaticStatus.NEUTRAL;
   }

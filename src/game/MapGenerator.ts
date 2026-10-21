@@ -110,16 +110,16 @@ export class MapGenerator {
           continue;
         }
 
-        // Create multiple noise layers with higher frequencies for smaller features
-        const elevation = this.noise(x * 0.3, y * 0.3) + 
-                         this.noise(x * 0.6, y * 0.6) * 0.5 + 
-                         this.noise(x * 1.2, y * 1.2) * 0.25;
+        // Create multiple noise layers (lower frequencies mean larger contiguous patches)
+        const elevation = this.noise(x * 0.15, y * 0.15) + 
+                         this.noise(x * 0.3, y * 0.3) * 0.5 + 
+                         this.noise(x * 0.6, y * 0.6) * 0.25;
         
-        const temperature = this.noise(x * 0.25 + 1000, y * 0.25 + 1000) +
-                           this.noise(x * 0.5 + 1000, y * 0.5 + 1000) * 0.3;
+        const temperature = this.noise(x * 0.15 + 1000, y * 0.15 + 1000) +
+                           this.noise(x * 0.3 + 1000, y * 0.3 + 1000) * 0.5;
         
-        const humidity = this.noise(x * 0.35 + 2000, y * 0.35 + 2000) +
-                        this.noise(x * 0.7 + 2000, y * 0.7 + 2000) * 0.4;
+        const humidity = this.noise(x * 0.2 + 2000, y * 0.2 + 2000) +
+                        this.noise(x * 0.4 + 2000, y * 0.4 + 2000) * 0.5;
 
         // Add some fine-grained randomness for more variation
         const randomFactor = (Math.random() - 0.5) * 0.3;
@@ -162,12 +162,12 @@ export class MapGenerator {
     const h = Math.max(-1, Math.min(1, humidity));
 
     // Mountains (very high elevation)
-    if (e > 0.8) {
+    if (e > 0.5) {
       return TerrainType.MOUNTAINS;
     }
     
     // Hills (high elevation)
-    if (e > 0.5) {
+    if (e > 0.25) {
       return TerrainType.HILLS;
     }
     

@@ -54,7 +54,7 @@ export class ProductionManager {
     });
     
     // Add available buildings
-    const availableBuildings = this.getAvailableBuildings(knownTechnologies, existingBuildings, hasWaterAccess);
+    const availableBuildings = this.getAvailableBuildings(knownTechnologies, existingBuildings, hasWaterAccess, gameState, city);
     availableBuildings.forEach(buildingType => {
       const stats = BUILDING_DEFINITIONS[buildingType];
       const remainingCost = Math.max(0, stats.productionCost - currentProductionPoints);
@@ -270,7 +270,9 @@ export class ProductionManager {
   private static getAvailableBuildings(
     knownTechnologies: TechnologyType[], 
     existingBuildings: BuildingType[],
-    hasWaterAccess: boolean = true
+    hasWaterAccess: boolean = true,
+    gameState?: any,
+    city?: City
   ): BuildingType[] {
     return Object.values(BuildingType).filter(buildingType => {
       const stats = BUILDING_DEFINITIONS[buildingType];
@@ -283,6 +285,19 @@ export class ProductionManager {
       // Check if already built (most buildings can only be built once)
       if (existingBuildings.includes(buildingType)) {
         return false;
+      }
+
+      // Special rule: Only one palace can be BUILT at a time
+      if (buildingType === BuildingType.PALACE && gameState && city) {
+        const isBuildingPalaceElsewhere = gameState.cities.some((c: City) => 
+          c.id !== city.id && 
+          c.playerId === city.playerId && 
+          c.production?.type === 'building' && 
+          c.production.item === BuildingType.PALACE
+        );
+        if (isBuildingPalaceElsewhere) {
+          return false;
+        }
       }
       
       // Check technology requirement

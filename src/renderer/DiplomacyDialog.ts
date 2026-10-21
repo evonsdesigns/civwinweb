@@ -218,6 +218,52 @@ export class DiplomacyDialog {
     }
   }
 
+  /**
+   * Chance (0..1) that the AI accepts a peace proposal from the human.
+   * Driven by the civ's personality, mood, relative strength and reputation; a first
+   * meeting is more forgiving because there is no bad history yet.
+   */
+  private getPeaceAcceptChance(
+    aiPlayer: Player,
+    humanPlayer: Player,
+    mood: AIMood,
+    isAIStronger: boolean,
+    isFirstContact: boolean,
+    diplomacyMgr: DiplomacyManager,
+  ): number {
+    if (mood === AIMood.FEARFUL) return 0.95;
+    if (mood === AIMood.AMIABLE) return 0.9;
+
+    const aggression = getCivilization(aiPlayer.civilizationType)?.aiTraits.aggression ?? 'normal';
+    let chance = aggression === 'friendly' ? 0.8
+               : aggression === 'aggressive' ? 0.3
+               : 0.55;
+
+    if (isAIStronger) chance *= 0.7;
+    if (mood === AIMood.HOSTILE || mood === AIMood.DEMANDING) chance *= 0.5;
+    if (mood === AIMood.AGGRESSIVE) chance *= 0.2;
+
+    if (isFirstContact) chance += 0.2;
+    if (diplomacyMgr.getReputation(humanPlayer.id) < 50) chance -= 0.2;
+
+    // Wartime: the side that is winning gets its way. A stronger AI rarely settles
+    // (but can); a weaker or beaten AI, especially one that has lost cities, begs for peace.
+    if (diplomacyMgr.isAtWar(aiPlayer.id, humanPlayer.id)) {
+      const citiesLost = diplomacyMgr.getCitiesCaptured(humanPlayer.id, aiPlayer.id);
+      const citiesTaken = diplomacyMgr.getCitiesCaptured(aiPlayer.id, humanPlayer.id);
+      if (citiesLost > 0 || !isAIStronger) {
+        chance = Math.max(chance, 0.75) + 0.1 * citiesLost;
+      } else {
+        chance = Math.min(chance, 0.25) * 0.5;
+      }
+      // Having taken our cities makes the AI far less willing to stop.
+      chance -= 0.15 * citiesTaken;
+      return Math.min(0.95, Math.max(0.05, chance));
+    }
+
+    return Math.min(0.95, Math.max(0.05, chance));
+  }
+
   private computeOptions(
     contact: DiplomacyContact,
     aiPlayer: Player,
@@ -477,31 +523,36 @@ export class DiplomacyDialog {
       contact.proposal === DiplomacyProposal.PLAYER_GREET ||
       opts.length === 0
     ) {
-      // Propose peace (if not already at peace)
-      if (!atPeace && !atWar && !senateForcePeace) {
+      // Request peace (unless already at peace). While at war this is the main option.
+      // The Senate only forces us to ACCEPT offers; it must never stop us from asking.
+      if (!atPeace) {
         opts.push({
           id: 'propose-peace',
           icon: '🕊️',
-          text: 'Propose a peace treaty',
-          description: 'Suggest a formal end to hostilities.',
+          text: atWar ? 'Request a peace treaty' : 'Propose a peace treaty',
+          description: atWar
+            ? 'Ask them to end the war.'
+            : 'Suggest a formal end to hostilities.',
           cssClass: 'response-peace',
           action: () => {
-            const willAccept = isAIStronger
-              ? mood === AIMood.FEARFUL || mood === AIMood.AMIABLE
-              : mood !== AIMood.AGGRESSIVE;
+            const isFirstContact = contact.proposal === DiplomacyProposal.AI_GREET;
+            const willAccept = Math.random() < this.getPeaceAcceptChance(
+              aiPlayer, humanPlayer, mood, isAIStronger, isFirstContact, diplomacyMgr,
+            );
             this.showStatusBar(
               willAccept
                 ? `🕊️ ${getCivilization(aiPlayer.civilizationType)?.leader} accepts the peace treaty!`
-                : `😡 ${getCivilization(aiPlayer.civilizationType)?.leader} refuses!`,
-              willAccept ? 'outcome-peace' : 'outcome-war',
+                : `😤 ${getCivilization(aiPlayer.civilizationType)?.leader} declines the treaty for now.`,
+              willAccept ? 'outcome-peace' : 'outcome-info',
             );
-            setTimeout(() => this.resolve({ accepted: willAccept, war: !willAccept, peace: willAccept }), 1600);
+            // A refusal leaves relations as they were (still at war if we were).
+            setTimeout(() => this.resolve({ accepted: willAccept, war: false, peace: willAccept }), 1600);
           },
         });
       }
 
-      // Offer tech trade
-      if (techsAIHasThatHumanDoes.length > 0 && techsHumanHasThatAIDoes.length > 0 && mood !== AIMood.AGGRESSIVE) {
+      // Offer tech trade (not while at war; a gift is still allowed below)
+      if (!atWar && techsAIHasThatHumanDoes.length > 0 && techsHumanHasThatAIDoes.length > 0 && mood !== AIMood.AGGRESSIVE) {
         opts.push({
           id: 'propose-trade',
           icon: '🔬',

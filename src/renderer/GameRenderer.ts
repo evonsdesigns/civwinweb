@@ -25,6 +25,7 @@ interface UnitDeathAnimationState {
 }
 
 export class GameRenderer {
+  private static readonly MAX_STACK_SPRITES = 3;
   private renderer: Renderer;
   private selectedTile: { x: number, y: number } | null = null;
   private selectedUnit: Unit | null = null;
@@ -32,6 +33,7 @@ export class GameRenderer {
   private gotoHoverTile: { x: number, y: number } | null = null;
   private currentWorldMap: Tile[][] = []; // Cache the world map for connection analysis
   private currentGameState: GameState | null = null; // Cache the game state for city checks
+  private cityPositionKeys: Set<string> = new Set(); // Rebuilt each frame; O(1) "is there a city here" lookups
   private readonly tileSize = 48; // Fixed tile size for terrain sprites
   private blinkState: boolean = false; // Track blinking state for current unit
   private unitDeathAnimations: UnitDeathAnimationState[] = [];
@@ -68,6 +70,7 @@ export class GameRenderer {
     this.currentWorldMap = gameState.worldMap;
     // Cache the game state for city checks
     this.currentGameState = gameState;
+    this.cityPositionKeys = new Set(gameState.cities.map(c => `${c.position.x},${c.position.y}`));
 
     // Render map tiles
     this.renderMap(gameState.worldMap, game);
@@ -933,7 +936,28 @@ export class GameRenderer {
 
   // Render all cities
   private renderCities(cities: City[], gameState: GameState): void {
+    const renderContext = this.renderer.getRenderContext();
+    const canvas = renderContext.canvas;
+    const padding = renderContext.tileSize * 2;
+    
+    // Precompute unit presence for all visible cities to avoid O(Cities * Units)
+    const unitPositions = new Set<string>();
+    if (gameState && gameState.units) {
+      for (const unit of gameState.units) {
+        unitPositions.add(`${unit.position.x},${unit.position.y}`);
+      }
+    }
+
     cities.forEach(city => {
+      // Screen culling first (fastest check)
+      const screenPos = this.renderer.worldToScreen(city.position.x, city.position.y);
+      if (
+        screenPos.x < -padding || screenPos.x > canvas.width + padding ||
+        screenPos.y < -padding || screenPos.y > canvas.height + padding
+      ) {
+        return; // Skip rendering off-screen city
+      }
+
       // Only render cities that are visible to the current player
       const debugSystem = DebugSystem.getInstance();
       let shouldShowCity = false;
@@ -960,13 +984,14 @@ export class GameRenderer {
       }
       
       if (shouldShowCity) {
-        this.renderCity(city, gameState);
+        const hasUnits = unitPositions.has(`${city.position.x},${city.position.y}`);
+        this.renderCity(city, gameState, hasUnits);
       }
     });
   }
 
   // Render a single city
-  private renderCity(city: City, gameState?: GameState): void {
+  private renderCity(city: City, gameState: GameState | undefined, hasUnits: boolean = false): void {
     const screenPos = this.renderer.worldToScreen(city.position.x, city.position.y);
     const renderContext = this.renderer.getRenderContext();
     const tileSize = renderContext.tileSize;
@@ -978,14 +1003,6 @@ export class GameRenderer {
       if (player) {
         playerColor = player.color;
       }
-    }
-    
-    // Check if there are any units at the city position
-    let hasUnits = false;
-    if (gameState) {
-      hasUnits = gameState.units.some(unit => 
-        unit.position.x === city.position.x && unit.position.y === city.position.y
-      );
     }
     
     // Use the new CitySprites system with population and unit presence
@@ -1018,35 +1035,49 @@ export class GameRenderer {
 
   // Render all units
   private renderUnits(units: Unit[], gameState: GameState): void {
+    const renderContext = this.renderer.getRenderContext();
+    const canvas = renderContext.canvas;
+    const padding = renderContext.tileSize * 2;
+    
     // Group units by position to handle multiple units on the same tile
     const unitsByPosition = new Map<string, Unit[]>();
+    const debugSystem = DebugSystem.getInstance();
+    const revealAll = debugSystem.shouldRevealAllMap();
     
-    units.forEach(unit => {
-      // Only render units that are visible to the current player
-      const debugSystem = DebugSystem.getInstance();
-      let shouldShowUnit = false;
-      
-      if (debugSystem.shouldRevealAllMap()) {
-        // Debug mode: show all units
-        shouldShowUnit = true;
-      } else {
-        // Normal mode: only show units on visible tiles
-        const visibilityState = VisibilitySystem.getTileVisibility(
-          gameState,
-          gameState.currentPlayer,
-          unit.position
-        );
-        shouldShowUnit = visibilityState === VisibilityState.VISIBLE;
-      }
-      
-      if (shouldShowUnit) {
-        const posKey = `${unit.position.x},${unit.position.y}`;
-        if (!unitsByPosition.has(posKey)) {
-          unitsByPosition.set(posKey, []);
+    for (let i = 0; i < units.length; i++) {
+        const unit = units[i];
+        // Screen culling first (fastest check)
+        const screenPos = this.renderer.worldToScreen(unit.position.x, unit.position.y);
+        if (
+            screenPos.x < -padding || screenPos.x > canvas.width + padding ||
+            screenPos.y < -padding || screenPos.y > canvas.height + padding
+        ) {
+            continue; // Skip checking/grouping off-screen units
         }
-        unitsByPosition.get(posKey)!.push(unit);
-      }
-    });
+
+        // Only render units that are visible to the current player
+        let shouldShowUnit = revealAll;
+        
+        if (!revealAll) {
+            // Normal mode: only show units on visible tiles
+            const visibilityState = VisibilitySystem.getTileVisibility(
+                gameState,
+                gameState.currentPlayer,
+                unit.position
+            );
+            shouldShowUnit = visibilityState === VisibilityState.VISIBLE;
+        }
+        
+        if (shouldShowUnit) {
+            const posKey = `${unit.position.x},${unit.position.y}`;
+            let group = unitsByPosition.get(posKey);
+            if (!group) {
+                group = [];
+                unitsByPosition.set(posKey, group);
+            }
+            group.push(unit);
+        }
+    }
     
     // Render each group of units
     unitsByPosition.forEach(unitsAtPosition => {
@@ -1071,7 +1102,11 @@ export class GameRenderer {
     
     // Multiple units - find the selected unit and render it prominently
     const selectedUnit = units.find(unit => this.selectedUnit && this.selectedUnit.id === unit.id);
-    const otherUnits = units.filter(unit => !selectedUnit || unit.id !== selectedUnit.id);
+    const otherUnits = units
+      .filter(unit => !selectedUnit || unit.id !== selectedUnit.id)
+      // Large stacks (e.g. AI armies) would otherwise draw dozens of offset sprites per tile;
+      // the count badge below conveys the rest.
+      .slice(0, GameRenderer.MAX_STACK_SPRITES);
     
     // Render background units in a stacked pattern (slightly offset and dimmed)
     otherUnits.forEach((unit, index) => {
@@ -1930,8 +1965,6 @@ export class GameRenderer {
     if (!this.currentGameState) return false;
     
     // Check if there's a city at the unit's position
-    return this.currentGameState.cities.some(city => 
-      city.position.x === unit.position.x && city.position.y === unit.position.y
-    );
+    return this.cityPositionKeys.has(`${unit.position.x},${unit.position.y}`);
   }
 }

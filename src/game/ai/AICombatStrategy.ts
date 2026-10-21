@@ -149,7 +149,20 @@ export function handleMilitaryAI(unit: Unit, gameState: GameState, game?: GameIn
                      : aggressivenessScore >= 0 ? 4
                      : 2;
 
-  const bestTarget = findBestEnemyTarget(unit, gameState);
+  // Memoized per unit: canAIAttackPlayer can be expensive for non-war pairs.
+  const attackableCache = new Map<string, boolean>();
+  const canTarget = dm
+    ? (pid: string): boolean => {
+        let ok = attackableCache.get(pid);
+        if (ok === undefined) {
+          ok = canAIAttackPlayer(unit.playerId, pid, dm, gameState);
+          attackableCache.set(pid, ok);
+        }
+        return ok;
+      }
+    : undefined;
+
+  const bestTarget = findBestEnemyTarget(unit, gameState, canTarget);
   if (bestTarget && getDistance(unit.position, bestTarget.position) <= searchRadius) {
     const targetPlayerId = bestTarget.type === 'city'
       ? (bestTarget.target as City).playerId
@@ -160,7 +173,7 @@ export function handleMilitaryAI(unit: Unit, gameState: GameState, game?: GameIn
     }
   }
 
-  const enemyUnit = findNearestEnemy(unit, gameState);
+  const enemyUnit = findNearestEnemy(unit, gameState, canTarget);
   if (enemyUnit && getDistance(unit.position, enemyUnit.position) <= Math.max(3, searchRadius / 2)) {
     if (!dm || canAIAttackPlayer(unit.playerId, enemyUnit.playerId, dm, gameState)) {
       moveUnitTowards(unit, enemyUnit.position, gameState, game);
@@ -191,7 +204,7 @@ export function handleMilitaryAI(unit: Unit, gameState: GameState, game?: GameIn
   }
 
     if (allCitiesDefended) {
-      const nearestEnemyCity = findNearestEnemyCity(unit, gameState);
+      const nearestEnemyCity = findNearestEnemyCity(unit, gameState, canTarget);
       if (nearestEnemyCity
           && (!dm || canAIAttackPlayer(unit.playerId, nearestEnemyCity.playerId, dm, gameState))
           && (aiTraits.aggression === "aggressive" || Math.random() < 0.8)) {
@@ -221,13 +234,18 @@ export function handleDefaultUnitAI(unit: Unit, gameState: GameState, game?: Gam
 // ─────────────────────────────────────────────────────────────
 
 /** Find the nearest enemy unit (any type) within the player's current line-of-sight. */
-export function findNearestEnemy(unit: Unit, gameState: GameState): Unit | null {
+export function findNearestEnemy(
+  unit: Unit,
+  gameState: GameState,
+  canTarget?: (playerId: string) => boolean,
+): Unit | null {
   const visibleKeys = VisibilitySystem.getVisibleKeys(unit.playerId);
   let nearest: Unit | null = null;
   let nearestDist = Infinity;
   for (const key of visibleKeys) {
     const other = getUnitAtKey(key, gameState);
     if (!other || other.playerId === unit.playerId) continue;
+    if (canTarget && !canTarget(other.playerId)) continue;
     const d = getDistance(unit.position, other.position);
     if (d < nearestDist) { nearestDist = d; nearest = other; }
   }
@@ -235,11 +253,16 @@ export function findNearestEnemy(unit: Unit, gameState: GameState): Unit | null 
 }
 
 /** Find the nearest enemy city that is not fully in the shroud. */
-export function findNearestEnemyCity(unit: Unit, gameState: GameState): City | null {
+export function findNearestEnemyCity(
+  unit: Unit,
+  gameState: GameState,
+  canTarget?: (playerId: string) => boolean,
+): City | null {
   let nearest: City | null = null;
   let nearestDist = Infinity;
   for (const city of gameState.cities) {
     if (city.playerId === unit.playerId) continue;
+    if (canTarget && !canTarget(city.playerId)) continue;
     if (isTileUnseen(city.position, unit.playerId, gameState)) continue;
     const d = getDistance(unit.position, city.position);
     if (d < nearestDist) { nearestDist = d; nearest = city; }
@@ -264,6 +287,7 @@ export function findNearestFriendlyCity(unit: Unit, gameState: GameState): City 
 export function findBestEnemyTarget(
   unit: Unit,
   gameState: GameState,
+  canTarget?: (playerId: string) => boolean,
 ): { position: Position; type: 'city' | 'unit'; target: City | Unit } | null {
   const radius = 8;
   let best: { position: Position; type: 'city' | 'unit'; target: City | Unit; priority: number } | null = null;
@@ -271,6 +295,7 @@ export function findBestEnemyTarget(
   // Cities are few — iterate them directly; use O(1) position index to count defenders.
   for (const city of gameState.cities) {
     if (city.playerId === unit.playerId) continue;
+    if (canTarget && !canTarget(city.playerId)) continue;
     if (isTileUnseen(city.position, unit.playerId, gameState)) continue;
     const d = getDistance(unit.position, city.position);
     if (d > radius) continue;
@@ -286,6 +311,7 @@ export function findBestEnemyTarget(
   for (const key of visibleKeys) {
     const enemy = getUnitAtKey(key, gameState);
     if (!enemy || enemy.playerId === unit.playerId) continue;
+    if (canTarget && !canTarget(enemy.playerId)) continue;
     const d = getDistance(unit.position, enemy.position);
     if (d > radius) continue;
     const stats = getUnitStats(enemy.type);

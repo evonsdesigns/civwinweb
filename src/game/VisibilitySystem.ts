@@ -82,6 +82,15 @@ export class VisibilitySystem {
     
     // Reveal new areas that this unit can now see
     this.revealAroundPosition(gameState, unit.playerId, toPosition, visionRange);
+
+    // AI/barbarian fog is only consulted for exploration (UNSEEN checks) and is fully
+    // recomputed once at the end of that player's turn, so a full recalculation on
+    // every single move (O(units) per move => O(units^2) per turn) is wasted work.
+    const mover = gameState.players.find(p => p.id === unit.playerId);
+    if (!mover?.isHuman) {
+      this.updateVisionFromPosition(gameState, unit.playerId, toPosition, visionRange, true);
+      return;
+    }
     
     // Recalculate all visibility for this player to handle overlapping vision correctly
     this.updateVisibilityForPlayer(gameState, unit.playerId);
@@ -108,16 +117,28 @@ export class VisibilitySystem {
     });
     visibleKeys.clear();
 
-    // Then update vision from all units and cities
-    const playerUnits = gameState.units.filter(unit => unit.playerId === playerId);
-    playerUnits.forEach(unit => {
-      this.updateVisionFromPosition(gameState, playerId, unit.position, this.getUnitVisionRange(unit), true);
-    });
+    const cityLookup = this.buildCityLookup(gameState);
 
-    const playerCities = gameState.cities.filter(city => city.playerId === playerId);
-    playerCities.forEach(city => {
-      this.updateVisionFromPosition(gameState, playerId, city.position, 2, true);
-    });
+    // Then update vision from all units and cities
+    for (const unit of gameState.units) {
+      if (unit.playerId !== playerId) continue;
+      this.updateVisionFromPosition(gameState, playerId, unit.position, this.getUnitVisionRange(unit), true, cityLookup);
+    }
+
+    for (const city of gameState.cities) {
+      if (city.playerId !== playerId) continue;
+      this.updateVisionFromPosition(gameState, playerId, city.position, 2, true, cityLookup);
+    }
+  }
+
+  /** Map of tileIndex (y * mapWidth + x) -> city, for O(1) city lookups while scanning vision. */
+  private static buildCityLookup(gameState: GameState): Map<number, City> {
+    const mapWidth = gameState.worldMap[0].length;
+    const lookup = new Map<number, City>();
+    for (const city of gameState.cities) {
+      lookup.set(city.position.y * mapWidth + city.position.x, city);
+    }
+    return lookup;
   }
 
   /**
@@ -153,11 +174,19 @@ export class VisibilitySystem {
   /**
    * Update current vision from a position
    */
-  private static updateVisionFromPosition(gameState: GameState, playerId: string, position: Position, range: number, isVisible: boolean): void {
+  private static updateVisionFromPosition(
+    gameState: GameState,
+    playerId: string,
+    position: Position,
+    range: number,
+    isVisible: boolean,
+    cityLookup?: Map<number, City>,
+  ): void {
     if (!gameState.visibility || !gameState.visibility.has(playerId)) {
       return;
     }
 
+    const lookup = cityLookup ?? this.buildCityLookup(gameState);
     const visibilityMap = gameState.visibility.get(playerId)!;
     const mapHeight = gameState.worldMap.length;
     const mapWidth = gameState.worldMap[0].length;
@@ -175,7 +204,7 @@ export class VisibilitySystem {
               visibilityMap.tiles[y][x] = VisibilityState.VISIBLE;
               visibleKeys.add(`${x},${y}`);
               // Mark any city on this tile as discovered by this player
-              const cityHere = gameState.cities.find(c => c.position.x === x && c.position.y === y);
+              const cityHere = lookup.get(y * mapWidth + x);
               if (cityHere) {
                 if (!cityHere.discoveredByPlayers) cityHere.discoveredByPlayers = [];
                 if (!cityHere.discoveredByPlayers.includes(playerId)) {

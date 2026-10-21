@@ -30,6 +30,7 @@ import { MusicPlayer } from './utils/MusicPlayer.js';
 import { UITemplateManager } from './utils/UITemplateManager.js';
 import { SettingsManager } from './utils/SettingsManager.js';
 import { DebugSystem } from './utils/DebugSystem.js';
+import { PopupSuppression } from './utils/PopupSuppression.js';
 import { logger } from './utils/Logger.js';
 import { SoundEffects } from './utils/SoundEffects.js';
 import { TechnologyUI } from './utils/TechnologyUI.js';
@@ -42,6 +43,7 @@ import { NotificationDialog } from './renderer/NotificationDialog.js';
 import { DiplomacyDialog } from './renderer/DiplomacyDialog.js';
 import { IntelligenceAdvisorModal } from './renderer/IntelligenceAdvisorModal.js';
 import { WondersOfTheWorldDialog } from './renderer/WondersOfTheWorldDialog.js';
+import { AdminPanel } from './renderer/AdminPanel.js';
 import { chooseGovernmentAfterAnarchy } from './game/ai/AIGovernmentStrategy.js';
 import { LoadingScreen } from './renderer/LoadingScreen.js';
 import { LandingScreen } from './renderer/LandingScreen.js';
@@ -70,6 +72,8 @@ class CivWinApp {
   private diplomacyDialog: DiplomacyDialog | null = null;
   private intelligenceAdvisorModal: IntelligenceAdvisorModal | null = null;
   private wondersDialog: WondersOfTheWorldDialog | null = null;
+  /** Local-only admin panel (null when not running locally). */
+  private adminPanel: AdminPanel | null = this.isRunningLocally() ? new AdminPanel(() => this.game.endTurn(), () => this.game.getDiplomacyManager()) : null;
   private isTechnologyDiscoveryInProgress = false; // Flag to prevent science advisor popup during discovery
   /** Deduplicates war-declaration dialogs when bulk-moving units: maps aiPlayerId → the in-flight confirm promise. */
   private pendingWarConfirmations = new Map<string, Promise<boolean>>();
@@ -212,6 +216,8 @@ class CivWinApp {
     console.log('Setting up game event listeners');
     this.game.on('gameInitialized', (gameState: any) => {
       console.log('Game initialized event received', gameState);
+      this.adminPanel?.reset();
+      this.adminPanel?.refresh(this.game.getGameState());
       this.gameRenderer.invalidateConnectionCache();
       this.updateUI();
       this.requestRender();
@@ -222,6 +228,7 @@ class CivWinApp {
 
     this.game.on('turnEnded', (gameState: any) => {
       console.log('Turn ended', gameState);
+      this.adminPanel?.refresh(this.game.getGameState());
       /** Clear end of turn state when new turn begins */
       this.status.setEndOfTurnState(false);
       this.gameRenderer.markTerrainLayerDirty();
@@ -245,8 +252,12 @@ class CivWinApp {
     });
 
     this.game.on('unitMoved', (data: any) => {
-      console.log('Unit moved', data);
-      this.gameRenderer.markTerrainLayerDirty();
+      // Fog of war only changes when a human unit moves; AI moves must not force
+      // a terrain-layer rebuild (and must not log per move — that stalls AI turns).
+      const mover = this.game.getGameState().players.find(p => p.id === data?.unit?.playerId);
+      if (mover?.isHuman) {
+        this.gameRenderer.markTerrainLayerDirty();
+      }
       this.requestRender();
     });
 
@@ -373,6 +384,9 @@ class CivWinApp {
   private handleResearchSelectionRequired(data: { playerId: string, player: any }): void {
     console.log(`handleResearchSelectionRequired: Research selection required for player: ${data.playerId}`);
 
+    // Admin auto-play: no popup, and no research is chosen for the player
+    if (PopupSuppression.isActive()) return;
+
     // Skip if technology discovery is currently in progress
     if (this.isTechnologyDiscoveryInProgress) {
       console.log('handleResearchSelectionRequired: Skipping research selection - technology discovery in progress');
@@ -416,6 +430,10 @@ class CivWinApp {
    * Setup UI event listeners
    */
   private setupUIEventListeners(): void {
+    window.addEventListener('render:requested', () => {
+      this.requestRender();
+    });
+
     this.setupMenuBar();
 
     const endTurnBtn = document.querySelector<HTMLButtonElement>('#end-turn-btn');
@@ -666,7 +684,34 @@ class CivWinApp {
       alert('CivWin - A Civilization-like game built with TypeScript and HTML5 Canvas\n\nVersion 1.0\nDeveloped with Vite and modern web technologies');
     });
 
+    // Dev Menu shortcut — only exposed when running locally
+    const devMenuItem = document.querySelector<HTMLElement>('#help-dev-menu-item');
+    if (devMenuItem && this.isRunningLocally()) {
+      devMenuItem.style.display = '';
+      this.addMenuAction('help-dev-menu', () => {
+        this.showSettingsModal();
+        const modal = document.querySelector<HTMLElement>('#settings-modal');
+        if (modal) this.switchSettingsTab('dev-menu', modal);
+      });
+    }
+
+    // Admin Panel — civilization progression overview, local only
+    const adminPanelItem = document.querySelector<HTMLElement>('#help-admin-panel-item');
+    if (adminPanelItem && this.adminPanel) {
+      adminPanelItem.style.display = '';
+      this.addMenuAction('help-admin-panel', () => {
+        if (!this.game) { alert('Please start a game first!'); return; }
+        this.adminPanel?.show(this.game.getGameState());
+      });
+    }
+
     this.populateMusicMenu();
+  }
+
+  // True when served from the local machine (Vite dev server or localhost preview)
+  private isRunningLocally(): boolean {
+    const host = window.location.hostname;
+    return host === 'localhost' || host === '127.0.0.1' || host === '[::1]' || host === '::1';
   }
 
   // Helper method to add menu action listeners
@@ -1323,7 +1368,7 @@ class CivWinApp {
       revealAllMap: this.getCheckboxValue('reveal-all-map'),
       fastProduction: this.getCheckboxValue('fast-production'),
       civ2Enhancements: this.getCheckboxValue('civ2-enhancements'),
-      unitSet: this.getSelectValue('unit-set') as 'classic' | 'v2' | 'v3',
+      unitSet: this.getSelectValue('unit-set') as 'classic' | 'v2' | 'v3' | 'v4',
       anyTileImprovement: this.getCheckboxValue('any-tile-improvement'),
       alwaysShowContactButton: this.getCheckboxValue('always-show-contact-button'),
       aiDevTest: this.getCheckboxValue('ai-dev-test'),
@@ -1603,6 +1648,11 @@ class CivWinApp {
 
   private handleDiplomacyContactRequired(data: { contact: any }): void {
     if (!this.diplomacyDialog) return;
+    // Admin auto-play: no dialog. The contact counts as refused, so hostile demands can still lead to war
+    if (PopupSuppression.isActive()) {
+      this.game.resolveIgnoredDiplomacyContact(data.contact);
+      return;
+    }
     // Skip in AI dev test mode
     if (DebugSystem.getInstance().isAiDevTestEnabled()) {
       this.game.applyDiplomacyOutcome(data.contact, { accepted: false, war: false, peace: false });
@@ -1637,6 +1687,9 @@ class CivWinApp {
    * Handle government selection required event (anarchy ended for human player).
    */
   private handleGovernmentSelectionRequired(data: { playerId: string; player: any; mandatory?: boolean }): void {
+    // Admin auto-play: no popup, and no government is chosen for the player
+    if (PopupSuppression.isActive()) return;
+
     if (DebugSystem.getInstance().isAiDevTestEnabled()) {
       const gameState = this.game.getGameState();
       const chosenGov = chooseGovernmentAfterAnarchy(gameState, data.playerId);
@@ -1696,6 +1749,7 @@ class CivWinApp {
 
     // Show discovery modal if this is a human player and NOT in AI dev mode
     if (event.player && event.player.isHuman && this.technologyDiscoveryModal &&
+        !PopupSuppression.isActive() &&
         !DebugSystem.getInstance().isAiDevTestEnabled()) {
       // Set flag to prevent automatic research selection during discovery
       this.isTechnologyDiscoveryInProgress = true;
@@ -1743,6 +1797,9 @@ class CivWinApp {
    * Prompt player to select new research
    */
   private promptForNewResearch(player: any): void {
+    // Admin auto-play: no popup, no research chosen
+    if (PopupSuppression.isActive()) return;
+
     // AI Dev Test: silently pick first available technology — no dialog
     if (DebugSystem.getInstance().isAiDevTestEnabled()) {
       const techs = this.game.getAvailableTechnologies(player.id);
@@ -1809,7 +1866,10 @@ class CivWinApp {
       const pos = data.unit.position;
       // When centerIfNeeded is set (e.g. promoted from queue dialog), only pan
       // the camera if the unit is not already visible in the current viewport.
-      const shouldCenter = !data.centerIfNeeded || !this.isUnitPositionVisible(pos.x, pos.y);
+      // During admin auto-play the human's units get auto-selected every turn; never yank the
+      // camera away from wherever the user is watching.
+      const shouldCenter = !PopupSuppression.isActive()
+        && (!data.centerIfNeeded || !this.isUnitPositionVisible(pos.x, pos.y));
       if (shouldCenter) {
         this.inputHandler.centerView(pos.x, pos.y);
       }
@@ -2023,8 +2083,8 @@ class CivWinApp {
   private handlePlayerEliminated(data: any): void {
     console.log('Player eliminated:', data);
 
-    // Suppress popup in AI dev mode
-    if (DebugSystem.getInstance().isAiDevTestEnabled()) return;
+    // Suppress popup in AI dev mode and during admin auto-play
+    if (PopupSuppression.isActive() || DebugSystem.getInstance().isAiDevTestEnabled()) return;
 
     if (!this.defeatNotificationModal) {
       console.error('Defeat notification modal not available');

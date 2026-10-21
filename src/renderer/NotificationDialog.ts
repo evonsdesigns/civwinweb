@@ -1,3 +1,5 @@
+import { PopupSuppression } from '../utils/PopupSuppression';
+
 /**
  * A lightweight Win95-style notification / confirmation dialog.
  *
@@ -11,6 +13,7 @@ export class NotificationDialog {
    * Returns a Promise that resolves when the user dismisses the dialog.
    */
   static info(title: string, message: string): Promise<void> {
+    if (PopupSuppression.isActive()) return Promise.resolve();
     return new Promise<void>((resolve) => {
       const overlay = NotificationDialog.createOverlay(
         title, message, false,
@@ -27,6 +30,8 @@ export class NotificationDialog {
    * Resolves to `true` if OK was clicked, `false` if Cancel / ESC was used.
    */
   static confirm(title: string, message: string, okText: string = 'OK'): Promise<boolean> {
+    // Suppressed popups take no action: treat as "Cancel".
+    if (PopupSuppression.isActive()) return Promise.resolve(false);
     return new Promise<boolean>((resolve) => {
       const overlay = NotificationDialog.createOverlay(
         title, message, true,

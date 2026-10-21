@@ -1,5 +1,7 @@
 import { TerrainType, ResourceType, TerrainVariant } from '../types/game.js';
 import { ConnectionPattern } from '../types/terrain.js';
+import { SettingsManager } from '../utils/SettingsManager.js';
+import { V4Sprites } from '../renderer/V4Sprites.js';
 
 // Import all terrain classes
 import { TerrainBase } from './TerrainBase.js';
@@ -70,10 +72,43 @@ export class TerrainManager {
    * Get terrain sprite (with or without connections and variants)
    */
   public static getTerrainSprite(type: TerrainType, tileSize: number, connections?: ConnectionPattern, variant?: TerrainVariant): HTMLCanvasElement {
-    const key = `${type}_${tileSize}_${connections || 0}_${variant || 'none'}`;
+    const unitSet = SettingsManager.getInstance().getSetting('unitSet');
+    const key = `${type}_${tileSize}_${connections || 0}_${variant || 'none'}_set:${unitSet}`;
 
     if (this.spriteCache.has(key)) {
       return this.spriteCache.get(key)!;
+    }
+
+    if (unitSet === 'v4') {
+      const v4Canvas = document.createElement('canvas');
+      v4Canvas.width = tileSize; v4Canvas.height = tileSize;
+
+      if (V4Sprites.isLoaded()) {
+        const sprite = V4Sprites.getTerrainSpriteSync(type, connections || 0);
+        const ctx = v4Canvas.getContext('2d')!;
+        ctx.drawImage(sprite, 0, 0, sprite.width, sprite.height, 0, 0, tileSize, tileSize);
+        if (variant && variant !== TerrainVariant.NONE) {
+          const tempCanvas = TerrainManager.addVariantToSprite(v4Canvas, variant, tileSize);
+          ctx.clearRect(0, 0, tileSize, tileSize);
+          ctx.drawImage(tempCanvas, 0, 0);
+        }
+      } else {
+        V4Sprites.getTerrainSprite(type, connections || 0).then(sprite => {
+          const ctx = v4Canvas.getContext('2d')!;
+          ctx.drawImage(sprite, 0, 0, sprite.width, sprite.height, 0, 0, tileSize, tileSize);
+          
+          if (variant && variant !== TerrainVariant.NONE) {
+            // Temporarily attach variant after loading
+            const tempCanvas = TerrainManager.addVariantToSprite(v4Canvas, variant, tileSize);
+            ctx.clearRect(0, 0, tileSize, tileSize);
+            ctx.drawImage(tempCanvas, 0, 0);
+          }
+          window.dispatchEvent(new CustomEvent('render:requested'));
+        });
+      }
+      
+      this.spriteCache.set(key, v4Canvas);
+      return v4Canvas;
     }
 
     // Generate sprite
@@ -108,6 +143,9 @@ export class TerrainManager {
    * Returns true when every terrain type has finished loading its images.
    */
   public static areAllImagesLoaded(): boolean {
+    if (SettingsManager.getInstance().getSetting('unitSet') === 'v4' && !V4Sprites.isLoaded()) {
+      return false;
+    }
     if (this.terrainInstances.size === 0) return false;
     let allLoaded = true;
     for (const [type, terrain] of this.terrainInstances.entries()) {

@@ -411,7 +411,7 @@ export class TurnManager {
         this.createUnit(city, productionItem as any, gameState);
         break;
       case 'building':
-        this.createBuilding(city, productionItem as any);
+        this.createBuilding(city, productionItem as any, gameState);
         break;
       case 'wonder':
         this.createWonder(city, productionItem as string);
@@ -535,10 +535,19 @@ export class TurnManager {
   }
 
   // Create a new building
-  private createBuilding(city: City, buildingType: string): void {
+  private createBuilding(city: City, buildingType: string, gameState: GameState): void {
+    if (buildingType === BuildingType.PALACE) {
+      // Remove palace from all other cities owned by this player
+      for (const otherCity of gameState.cities) {
+        if (otherCity.id !== city.id && otherCity.playerId === city.playerId) {
+          otherCity.buildings = otherCity.buildings.filter(b => b.type !== BuildingType.PALACE);
+        }
+      }
+    }
+
     city.buildings.push({
       type: buildingType as any,
-      completedTurn: 0 // Would be set to current turn
+      completedTurn: gameState.turn || 0
     });
 
     // Notify about building completion

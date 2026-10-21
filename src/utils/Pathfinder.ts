@@ -1,6 +1,67 @@
 import { Position, GameState, Unit, TerrainType, ImprovementType, UnitCategory } from '../types/game.js';
 import { getUnitStats } from '../game/UnitDefinitions.js';
 
+class PriorityQueue<T> {
+  private heap: { element: T; priority: number }[] = [];
+
+  enqueue(element: T, priority: number): void {
+    this.heap.push({ element, priority });
+    this.bubbleUp(this.heap.length - 1);
+  }
+
+  dequeue(): T | undefined {
+    if (this.heap.length === 0) return undefined;
+    if (this.heap.length === 1) return this.heap.pop()!.element;
+    const top = this.heap[0].element;
+    this.heap[0] = this.heap.pop()!;
+    this.sinkDown(0);
+    return top;
+  }
+
+  isEmpty(): boolean {
+    return this.heap.length === 0;
+  }
+
+  private bubbleUp(index: number): void {
+    const item = this.heap[index];
+    while (index > 0) {
+      const parentIndex = Math.floor((index - 1) / 2);
+      const parent = this.heap[parentIndex];
+      if (item.priority >= parent.priority) break;
+      this.heap[index] = parent;
+      index = parentIndex;
+    }
+    this.heap[index] = item;
+  }
+
+  private sinkDown(index: number): void {
+    const length = this.heap.length;
+    let item = this.heap[index];
+    while (true) {
+      const leftChildIdx = 2 * index + 1;
+      const rightChildIdx = 2 * index + 2;
+      let swapIdx: number | null = null;
+      let priorityToCompare = item.priority;
+
+      if (leftChildIdx < length) {
+        if (this.heap[leftChildIdx].priority < priorityToCompare) {
+          swapIdx = leftChildIdx;
+          priorityToCompare = this.heap[leftChildIdx].priority;
+        }
+      }
+      if (rightChildIdx < length) {
+        if (this.heap[rightChildIdx].priority < priorityToCompare) {
+          swapIdx = rightChildIdx;
+        }
+      }
+      if (swapIdx === null) break;
+      this.heap[index] = this.heap[swapIdx];
+      index = swapIdx;
+    }
+    this.heap[index] = item;
+  }
+}
+
 /** @internal A single node in the A* open/closed sets. */
 interface AStarNode {
   position: Position;
@@ -74,6 +135,9 @@ export function findPath(
     return Math.min(dx, mapWidth - dx) + Math.abs(a.y - b.y);
   };
 
+  // Create a quick lookup for city positions
+  const cityPositions = new Set(gameState.cities.map(city => `${city.position.x},${city.position.y}`));
+
   /** True if this unit type can enter the given tile. */
   const canEnter = (pos: Position): boolean => {
     const tile = gameState.worldMap[pos.y]?.[pos.x];
@@ -86,8 +150,7 @@ export function findPath(
     if (isNaval) {
       if (tile.terrain === TerrainType.OCEAN) return true;
 
-      const cityAtPos = gameState.cities.find(c => c.position.x === pos.x && c.position.y === pos.y);
-      if (cityAtPos) {
+      if (cityPositions.has(`${pos.x},${pos.y}`)) {
         // Check if city is coastal
         for (let dy = -1; dy <= 1; dy++) {
           for (let dx = -1; dx <= 1; dx++) {
@@ -105,15 +168,15 @@ export function findPath(
       return false;
     }
 
-    // Land units cannot cross ocean (transport boarding not modelled here)
-    if (tile.terrain === TerrainType.OCEAN) return false;
+    // Land units cannot cross ocean (except we allow targeting the exact destination to embark)
+    if (tile.terrain === TerrainType.OCEAN) {
+      if (pos.x === dest.x && pos.y === dest.y) return true;
+      return false;
+    }
 
     // All other passable terrain is fine
     return true;
   };
-
-  // Create a quick lookup for city positions
-  const cityPositions = new Set(gameState.cities.map(city => `${city.position.x},${city.position.y}`));
 
   /** Movement cost to enter a tile (roads halve cost, simplified to 1). */
 const moveCost = (fromPos: Position, toPos: Position): number => {
@@ -157,6 +220,7 @@ const moveCost = (fromPos: Position, toPos: Position): number => {
   // ── A* search ────────────────────────────────────────────────────────────
 
   const openMap    = new Map<string, AStarNode>();
+  const openQueue  = new PriorityQueue<AStarNode>();
   const closedSet  = new Set<string>();
 
   const startNode: AStarNode = {
@@ -167,21 +231,24 @@ const moveCost = (fromPos: Position, toPos: Position): number => {
     parent: null,
   };
   openMap.set(key(start), startNode);
+  openQueue.enqueue(startNode, startNode.f);
 
   const MAX_NODES = 2000; // Safety cap for large maps
   let iterations = 0;
 
-  while (openMap.size > 0 && iterations < MAX_NODES) {
+  while (!openQueue.isEmpty() && iterations < MAX_NODES) {
     iterations++;
 
     // Pick node with lowest f-score from open set
-    let current: AStarNode | null = null;
-    for (const node of openMap.values()) {
-      if (!current || node.f < current.f) current = node;
-    }
+    const current = openQueue.dequeue();
     if (!current) break;
 
     const currentKey = key(current.position);
+    
+    const existingMapNode = openMap.get(currentKey);
+    // If the node was updated and has a better gCost, this pop is outdated.
+    if (!existingMapNode || existingMapNode.g < current.g) continue;
+
     openMap.delete(currentKey);
     closedSet.add(currentKey);
 
@@ -207,13 +274,15 @@ const moveCost = (fromPos: Position, toPos: Position): number => {
       const existing = openMap.get(nbKey);
       if (!existing || gCost < existing.g) {
         const h = heuristic(nb, dest);
-        openMap.set(nbKey, {
+        const nextNode = {
           position: nb,
           g: gCost,
           h,
           f: gCost + h,
           parent: current,
-        });
+        };
+        openMap.set(nbKey, nextNode);
+        openQueue.enqueue(nextNode, nextNode.f);
       }
     }
   }

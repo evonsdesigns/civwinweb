@@ -63,7 +63,24 @@ type ThreatLevel = 'peacetime' | 'tense' | 'wartime';
  * - **tense**: enemy cities within 8 tiles, or enemy units within 10 tiles
  * - **peacetime**: no significant nearby threats
  */
+const _threatLevelCache = new Map<string, ThreatLevel>();
+let   _threatLevelTurn  = -1;
+let   _threatLevelState: GameState | null = null;
+
 function assessThreatLevel(gameState: GameState, playerId: string): ThreatLevel {
+  if (_threatLevelTurn !== gameState.turn || _threatLevelState !== gameState) {
+    _threatLevelCache.clear();
+    _threatLevelTurn = gameState.turn;
+    _threatLevelState = gameState;
+  }
+  const cached = _threatLevelCache.get(playerId);
+  if (cached) return cached;
+  const level = computeThreatLevel(gameState, playerId);
+  _threatLevelCache.set(playerId, level);
+  return level;
+}
+
+function computeThreatLevel(gameState: GameState, playerId: string): ThreatLevel {
   const playerCities = gameState.cities.filter(c => c.playerId === playerId);
   if (playerCities.length === 0) return 'wartime';
 
@@ -244,7 +261,15 @@ export function setAICityProduction(city: City, gameState: GameState): void {
         ? Math.min(desiredDefenders, 2)       // Tense — 2 max before switching priorities
         : Math.min(desiredDefenders, 1);      // Peacetime — 1 is enough, then develop
 
-  const needsDefense = defendersInCity < productionDefenseFloor;
+  // Defenders are counted only while standing in the city, so units that wander off
+  // (patrol / attack / explore) used to make the city rebuild them endlessly. Bound the
+  // empire-wide army so defense top-ups can never snowball into unit spam.
+  const defenseUnitCap  = Math.ceil(playerCities.length * (cityThreatened || isWartime ? 3 : 2));
+  const absoluteUnitCap = playerCities.length * 3;
+  const defenseCapAllows = militaryCount < defenseUnitCap
+    || (defendersInCity === 0 && militaryCount < absoluteUnitCap);
+
+  const needsDefense = defendersInCity < productionDefenseFloor && defenseCapAllows;
 
   const earlyGameTurn = isExpansionist ? 40 : isPerfectionist ? 25 : 30;
   const isEarlyGame   = gameState.turn <= earlyGameTurn;
@@ -450,7 +475,7 @@ export function setAICityProduction(city: City, gameState: GameState): void {
   // Top up city defense to the full desired level now that development priorities
   // have been addressed. This is a lower priority than settlers/buildings/wonders
   // but still happens before pure military expansion.
-  if (defendersInCity < desiredDefenders) {
+  if (defendersInCity < desiredDefenders && defenseCapAllows) {
     setMilitary('defense');
     return;
   }

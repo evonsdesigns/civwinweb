@@ -12,12 +12,14 @@ import { ProductionManager } from './ProductionManager';
 import { CityGrowthSystem } from './CityGrowthSystem';
 import { VisibilitySystem } from './VisibilitySystem';
 import { DebugSystem } from '../utils/DebugSystem';
+import { PopupSuppression } from '../utils/PopupSuppression';
 import { SettingsManager } from '../utils/SettingsManager';
 import { BuildingCompletionModal } from '../renderer/BuildingCompletionModal';
 import { findPath } from '../utils/Pathfinder';
 import { TaxSystem } from './TaxSystem';
 import { chooseGovernmentAfterAnarchy, shouldAIStartRevolution } from './ai/AIGovernmentStrategy';
 import { findBestInfrastructureAction } from './ai/AISettlerStrategy';
+import { processAIToAIDiplomacy, maybeDeclareWarOnHuman, wouldAIDeclareWarOnIgnoredContact } from './ai/AIDiplomacyStrategy';
 import { isMilitaryUnit } from './ai/AIUtils';
 import { DiplomacyManager, DiplomacyContact, DiplomacyOutcome, DiplomacyProposal, DiplomaticStatus } from './DiplomacyManager';
 import { getDifficultyParams } from './DifficultyConfig';
@@ -429,6 +431,21 @@ export class Game {
         const humanPlayer = this.gameState.players.find(p => p.isHuman && !p.defeated);
         if (humanPlayer && !DebugSystem.getInstance().isAiDevTestEnabled()) {
           this.checkAIDiplomacyContact(currentPlayer, humanPlayer);
+        }
+
+        // AI-vs-AI contact, war declarations and ceasefires
+        processAIToAIDiplomacy(this.gameState, currentPlayer.id, this.diplomacyManager);
+
+        // The AI may also pick a fight with the human; the human is told via a DECLARE_WAR contact
+        if (humanPlayer && !DebugSystem.getInstance().isAiDevTestEnabled()) {
+          const warContact = maybeDeclareWarOnHuman(this.gameState, currentPlayer.id, this.diplomacyManager);
+          if (warContact) {
+            this.pendingDiplomacyContacts.push(warContact);
+            this.emit('diplomaticWarDeclared', {
+              initiatorId: warContact.initiatorId,
+              receiverId: warContact.receiverId,
+            });
+          }
         }
 
         // Execute AI logic
@@ -900,6 +917,15 @@ export class Game {
   }
 
   /**
+   * Resolve a diplomacy contact nobody answered (admin auto-play). It counts as a refusal, so
+   * demands from hostile AIs can still lead to war just like in the dialog.
+   */
+  public resolveIgnoredDiplomacyContact(contact: DiplomacyContact): void {
+    const war = wouldAIDeclareWarOnIgnoredContact(this.gameState, contact, this.diplomacyManager);
+    this.applyDiplomacyOutcome(contact, { accepted: false, war, peace: false });
+  }
+
+  /**
    * Initiate diplomacy between the human player and an AI player.
    * Call this when the human sends a diplomat to an AI city, or from the
    * Intelligence Advisor. Works regardless of whose turn it currently is.
@@ -1138,7 +1164,7 @@ export class Game {
       ? humanPlayer !== undefined
       : (player && player.isHuman);
 
-    if (shouldShow) {
+    if (shouldShow && !PopupSuppression.isActive()) {
       // Determine if a foreign civ built this wonder
       let foreignCivName: string | null = null;
       if (isWonder && player && !player.isHuman) {

@@ -1303,6 +1303,197 @@ button:disabled {
   border: 2px inset #c0c0c0;
 }
 
+/* ── Admin Panel (local only) ─────────────────────────────────────────────── */
+
+.admin-overlay {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.55);
+  z-index: 9000;
+}
+
+.admin-dialog {
+  background: #007878;
+  border: 3px solid #00468c;
+  width: min(1100px, 95vw);
+  max-height: 92vh;
+  display: flex;
+  flex-direction: column;
+  font-family: 'MS Sans Serif', sans-serif;
+  padding: 12px;
+  gap: 10px;
+  box-shadow: 4px 4px 0 #003c6e;
+}
+
+.admin-title {
+  text-align: center;
+  color: #fff;
+  font-size: 15px;
+  font-weight: bold;
+  letter-spacing: 1px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.25);
+}
+
+.admin-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  overflow-y: auto;
+}
+
+.admin-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: #fff;
+  font-size: 12px;
+}
+
+.admin-play-btn {
+  background: #c0c0c0;
+  border: 2px outset #c0c0c0;
+  padding: 4px 18px;
+  font-size: 12px;
+  font-weight: bold;
+  cursor: pointer;
+  min-width: 90px;
+}
+
+.admin-play-btn.admin-playing {
+  background: #e8b0b0;
+}
+
+.admin-toolbar-status {
+  color: #cff;
+  font-style: italic;
+}
+
+.admin-minimize-btn {
+  margin-left: auto;
+  background: #c0c0c0;
+  border: 2px outset #c0c0c0;
+  padding: 4px 12px;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.admin-minimize-btn:active {
+  border: 2px inset #c0c0c0;
+}
+
+/* Minimized: no dimming and no click blocking; the dialog shrinks to a bar docked bottom-right. */
+.admin-overlay.admin-minimized {
+  background: none;
+  pointer-events: none;
+  align-items: flex-end;
+  justify-content: flex-end;
+}
+
+.admin-overlay.admin-minimized .admin-dialog {
+  pointer-events: auto;
+  width: auto;
+  max-width: 95vw;
+  margin: 0 12px 12px 0;
+  padding: 8px;
+  gap: 6px;
+}
+
+.admin-overlay.admin-minimized .admin-body,
+.admin-overlay.admin-minimized .admin-close-btn,
+.admin-overlay.admin-minimized .admin-toolbar-status {
+  display: none;
+}
+
+.admin-overlay.admin-minimized .admin-title {
+  font-size: 12px;
+  padding-bottom: 4px;
+}
+
+.admin-table-wrap {
+  overflow-x: auto;
+}
+
+.admin-table {
+  width: 100%;
+  border-collapse: collapse;
+  color: #fff;
+  font-size: 12px;
+}
+
+.admin-table th,
+.admin-table td {
+  border: 1px solid rgba(0, 204, 204, 0.6);
+  padding: 4px 8px;
+  white-space: nowrap;
+}
+
+.admin-table th {
+  background: rgba(0, 0, 0, 0.25);
+  text-align: left;
+}
+
+.admin-table td.admin-num {
+  text-align: right;
+}
+
+.admin-table tr.admin-current td {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.admin-table tr.admin-defeated td {
+  opacity: 0.5;
+  text-decoration: line-through;
+}
+
+.admin-swatch {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  margin-right: 6px;
+  border: 1px solid #fff;
+}
+
+.admin-chart-controls {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  color: #fff;
+  font-size: 12px;
+  margin-bottom: 6px;
+}
+
+.admin-chart-note {
+  color: #cff;
+  font-style: italic;
+}
+
+.admin-chart {
+  width: 100%;
+  height: auto;
+  border: 1px solid #00cccc;
+}
+
+.admin-close-btn {
+  align-self: center;
+  background: #c0c0c0;
+  border: 2px outset #c0c0c0;
+  padding: 4px 24px;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.admin-close-btn:hover {
+  background: #e0e0e0;
+}
+
+.admin-close-btn:active {
+  border: 2px inset #c0c0c0;
+}
+
 /* ── Production Queue ─────────────────────────────────────────────────────── */
 
 .production-queue-section {

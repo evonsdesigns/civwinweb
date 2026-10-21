@@ -139,7 +139,7 @@ export function shouldEmbarkSettler(unit: Unit, gameState: GameState): boolean {
  * Returns true if an action was taken.
  */
 export function handleEmbarkation(unit: Unit, gameState: GameState, game?: GameInterface): boolean {
-  const transport = findNearbyTransport(unit, gameState);
+  const transport = findNearbyTransport(unit, gameState, 6);
   if (!transport) return false;
   moveUnitTowards(unit, transport.position, gameState, game);
   return true;

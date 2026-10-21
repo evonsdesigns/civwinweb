@@ -17,6 +17,7 @@ import { VisibilitySystem } from './VisibilitySystem';
 import { getCivilization } from './CivilizationDefinitions';
 import { DiplomacyManager } from './DiplomacyManager';
 import { resolveVillageEncounter, applyVillageEncounterResult } from './VillageSystem';
+import { BARBARIAN_PLAYER_ID } from './BarbarianSystem';
 
 export class UnitMovementSystem {
   constructor(
@@ -114,6 +115,7 @@ export class UnitMovementSystem {
         // Collect the distinct AI owner(s) on that tile
         const aiOwnerIds = [...new Set(enemyUnitsAtPosition.map(u => u.playerId))];
         const aiPlayerId = aiOwnerIds.find(id => {
+          if (id === BARBARIAN_PLAYER_ID) return false;
           const p = this.gameState.players.find(pp => pp.id === id);
           return p && !p.isHuman && !this.diplomacyManager.isAtWar(unit.playerId, id);
         });
@@ -181,7 +183,7 @@ export class UnitMovementSystem {
 
         const oldOwner = cityAtPosition.playerId;
         cityAtPosition.playerId = unit.playerId;
-
+        this.diplomacyManager.recordCityCapture(unit.playerId, oldOwner);
         // Add captured city name to new owner's used names list
         const newOwnerPlayer = this.gameState.players.find(p => p.id === unit.playerId);
         if (newOwnerPlayer && !newOwnerPlayer.usedCityNames.includes(cityAtPosition.name)) {

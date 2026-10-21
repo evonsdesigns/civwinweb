@@ -1,6 +1,9 @@
 import { UnitType } from '../types/game';
 import { SettingsManager } from '../utils/SettingsManager';
 
+import { V4Sprites } from './V4Sprites';
+import { TerrainType } from '../types/game';
+
 /**
  * Unit sprite management system for handling unit graphics with player-specific recoloring.
  * Similar to TerrainSprites but focused on units that need player color customization.
@@ -9,6 +12,8 @@ export class UnitSprites {
   private static spriteCache = new Map<string, HTMLCanvasElement>();
   private static baseImages = new Map<string, HTMLImageElement|HTMLCanvasElement>();
   private static imageLoadPromises = new Map<string, Promise<HTMLImageElement|HTMLCanvasElement>>();
+  private static pendingSpriteLoads = new Set<string>();
+  private static failedSpriteLoads = new Set<string>();
   
   private static civ1UnitsImage: HTMLImageElement | null = null;
   private static civ1UnitsPromise: Promise<HTMLImageElement> | null = null;
@@ -75,6 +80,19 @@ export class UnitSprites {
     }
 
     try {
+      if (unitSet === 'v4') {
+        const v4Canvas = await V4Sprites.getUnitSprite(unitType, playerColor);
+        
+        // Final resize depending on tileSize
+        const canvas = document.createElement('canvas');
+        canvas.width = tileSize; canvas.height = tileSize;
+        const ctx = canvas.getContext('2d')!;
+        ctx.drawImage(v4Canvas, 0, 0, v4Canvas.width, v4Canvas.height, 0, 0, tileSize, tileSize);
+        
+        this.spriteCache.set(cacheKey, canvas);
+        return canvas;
+      }
+
       // Load base image if not already loaded
       const baseImage = await this.loadBaseImage(unitType);
       if (!baseImage) {
@@ -102,7 +120,25 @@ export class UnitSprites {
     playerColor: string, 
     tileSize: number
   ): void {
-    this.getUnitSprite(unitType, playerColor, tileSize).catch(error => {
+    const unitSet = SettingsManager.getInstance().getSetting('unitSet');
+    const key = `${unitType}-${playerColor}-${tileSize}-set:${unitSet}`;
+
+    // The renderer calls this every frame for every unit whose sprite isn't cached yet.
+    // Without de-duplication that spawns one promise + one re-render per unit per frame,
+    // and loops forever if the sprite can never be produced.
+    if (this.pendingSpriteLoads.has(key) || this.failedSpriteLoads.has(key)) return;
+    this.pendingSpriteLoads.add(key);
+
+    this.getUnitSprite(unitType, playerColor, tileSize).then(sprite => {
+      this.pendingSpriteLoads.delete(key);
+      if (sprite) {
+        window.dispatchEvent(new CustomEvent('render:requested'));
+      } else {
+        this.failedSpriteLoads.add(key);
+      }
+    }).catch(error => {
+      this.pendingSpriteLoads.delete(key);
+      this.failedSpriteLoads.add(key);
       console.warn(`Background sprite loading failed for ${unitType}:`, error);
     });
   }
@@ -249,6 +285,34 @@ export class UnitSprites {
         filename = 'fighter.png'; break;
       case UnitType.BOMBER:
         filename = 'bomber.png'; break;
+
+      // Naval units
+      case UnitType.TRIREME:
+        filename = 'trireme.png'; break;
+      case UnitType.SAIL:
+        filename = 'sail.png'; break;
+      case UnitType.FRIGATE:
+        filename = 'frigate.png'; break;
+      case UnitType.IRONCLAD:
+        filename = 'ironclad.png'; break;
+      case UnitType.CRUISER:
+        filename = 'cruiser.png'; break;
+      case UnitType.BATTLESHIP:
+        filename = 'battleship.png'; break;
+      case UnitType.SUBMARINE:
+        filename = 'submarine.png'; break;
+      case UnitType.CARRIER:
+        filename = 'carrier.png'; break;
+      case UnitType.TRANSPORT:
+        filename = 'transport.png'; break;
+
+      // Special units
+      case UnitType.NUCLEAR:
+        filename = 'nuclear.png'; break;
+      case UnitType.DIPLOMAT:
+        filename = 'diplomat.png'; break;
+      case UnitType.CARAVAN:
+        filename = 'caravan.png'; break;
         
       default:
         throw new Error(`No sprite available for unit type ${unitType}`);
@@ -358,7 +422,7 @@ export class UnitSprites {
    */
   public static hasCustomSprite(unitType: UnitType): boolean {
     const unitSet = SettingsManager.getInstance().getSetting('unitSet');
-    if (unitSet === 'v2') {
+    if (unitSet === 'v2' || unitSet === 'v4') {
       return this.V2_UNIT_ORDER.includes(unitType);
     }
     try {
@@ -374,6 +438,7 @@ export class UnitSprites {
    */
   public static clearCache(): void {
     this.spriteCache.clear();
+    this.failedSpriteLoads.clear();
   }
 
   /**
